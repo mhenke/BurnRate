@@ -342,24 +342,29 @@ git commit -m "feat: add github client with octokit and signed-url fetcher"
 - Create: `src/github/seats.ts`
 - Create: `tests/github/reports.test.ts`
 
-- [~] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { strict as assert } from 'node:assert';
+import { describe, it } from 'vitest';
 import { buildReportUrls } from '../../src/github/reports.js';
 
-assert.equal(
-  buildReportUrls('acme', 'enterprise-1-day', '2026-06-12')[0],
-  '/enterprises/acme/copilot/metrics/reports/enterprise-1-day?day=2026-06-12'
-);
+describe('reports', () => {
+  it('builds the correct report URL with date', () => {
+    assert.equal(
+      buildReportUrls('acme', 'enterprise-1-day', '2026-06-12')[0],
+      '/enterprises/acme/copilot/metrics/reports/enterprise-1-day?day=2026-06-12'
+    );
+  });
+});
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
-Run: `npm test -- tests/github/reports.test.ts`
+Run: `npx vitest run tests/github/reports.test.ts`
 Expected: fail.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```ts
 // src/github/reports.ts
@@ -416,12 +421,12 @@ export async function fetchAllSeats(
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npm test -- tests/github/reports.test.ts`
 Expected: pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit** `7c64c13`
 
 ```bash
 git add src/github/reports.ts src/github/seats.ts tests/github/reports.test.ts
