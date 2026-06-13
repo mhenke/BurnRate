@@ -1032,16 +1032,16 @@ git commit -m "feat: wire cli and github actions workflows"
 
 ### Verification checklist for Phase 1
 
-- [ ] `npm run build` succeeds
-- [ ] `npm test` succeeds
-- [ ] `npm run etl` runs without mutating budgets
-- [ ] `npm run forecast` runs and logs thresholds only
-- [ ] GitHub Actions workflows exist and use PAT (`GITHUB_PAT`) not built-in token
-- [ ] Nightly ETL workflow does NOT run `npm test`
-- [ ] Raw report payloads are stored before parsing
-- [ ] `classification_history` table is created but never populated
-- [ ] Backfill script is absent (deferred to later phase)
-- [ ] No Copilot Skills code exists yet
+- [x] `npm run build` succeeds
+- [x] `npm test` succeeds
+- [x] `npm run etl` runs without mutating budgets
+- [x] `npm run forecast` runs and logs thresholds only
+- [x] GitHub Actions workflows exist and use PAT (`GITHUB_PAT`) not built-in token
+- [x] Nightly ETL workflow does NOT run `npm test`
+- [x] Raw report payloads are stored before parsing
+- [x] `classification_history` table is created but never populated
+- [x] Backfill script is absent (deferred to later phase)
+- [x] No Copilot Skills code exists yet
 
 ---
 
