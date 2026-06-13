@@ -242,7 +242,7 @@ git commit -m "feat: define database schemas using Drizzle ORM"
 - Create: `src/db/migrate.ts`
 - Create: `tests/db/client.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [~] **Step 1: Write the failing test**
 
 ```ts
 import { strict as assert } from 'node:assert';
