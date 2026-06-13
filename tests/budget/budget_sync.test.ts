@@ -2,7 +2,6 @@ import { describe, it, vi, beforeEach, afterEach } from 'vitest';
 import { strict as assert } from 'node:assert';
 import { runBudgetSync, type BudgetSyncConfig } from '../../src/budget/budget_sync.js';
 import type { GitHubClient } from '../../src/github/client.js';
-import type { BudgetReport } from '../../src/github/budget.js';
 import { initDb, closeDb, getDb } from '../../src/db/client.js';
 import {
   budgetSnapshotsSq,
@@ -11,23 +10,23 @@ import {
 } from '../../src/db/schema.js';
 import { eq } from 'drizzle-orm';
 
-function createMockGitHubClient(overrides?: Partial<BudgetReport>): GitHubClient {
-  const budgetData: BudgetReport = {
-    total_budget: 10000,
-    budget_used: 7500,
-    budget_remaining: 2500,
-    pct_used: 75,
-    pct_elapsed: 60,
-    forecast_7d: 8500,
-    forecast_30d: 9500,
-    alert_level: 'warning',
-    ...overrides,
-  };
+let testPoolSnapshot: any = null;
+
+function createMockGitHubClient(overrides?: { budget_used?: number }): GitHubClient {
+  const budgetUsed = overrides?.budget_used ?? 7500;
 
   const octokitMock = {
     request: vi.fn().mockResolvedValue({
       data: {
-        budget: budgetData,
+        timePeriod: { year: 2026, month: 6 },
+        organization: 'acme-inc',
+        usageItems: [
+          {
+            product: 'Copilot',
+            sku: 'Copilot AI Credits',
+            netAmount: budgetUsed,
+          }
+        ]
       },
     }),
   };
@@ -49,19 +48,29 @@ function createMockDb() {
   };
 
   const mockSelect = {
-    from: vi.fn().mockImplementation(() => ({
-      where: vi.fn().mockReturnValue({
-        limit: vi.fn().mockResolvedValue([]),
-      }),
-      orderBy: vi.fn().mockReturnValue({
-        limit: vi.fn().mockResolvedValue([]),
-      }),
-    })),
+    from: vi.fn().mockImplementation((table: any) => {
+      if (table === poolSnapshotsSq) {
+        return {
+          orderBy: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue(testPoolSnapshot ? [testPoolSnapshot] : []),
+          }),
+        };
+      }
+      return {
+        where: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue([]),
+        }),
+        orderBy: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue([]),
+        }),
+      };
+    }),
   };
 
   return {
     insert: vi.fn().mockReturnValue(mockInsert),
     select: vi.fn().mockReturnValue(mockSelect),
+    run: vi.fn(),
     constructor: {
       name: 'BaseSQLiteDatabase',
     },
@@ -73,6 +82,12 @@ describe('runBudgetSync', () => {
   let github: GitHubClient;
 
   beforeEach(() => {
+    testPoolSnapshot = {
+      totalCredits: '10000',
+      creditsUsed: '7500',
+      forecast7d: '8500',
+      forecast30d: '9500',
+    };
     db = createMockDb();
     github = createMockGitHubClient();
   });
@@ -98,7 +113,7 @@ describe('runBudgetSync', () => {
     assert.equal(result.totalBudget, 10000);
     assert.equal(result.budgetUsed, 7500);
     assert.ok(result.pctUsed >= 0);
-    assert.equal(result.alertLevel, 'warning');
+    assert.equal(result.alertLevel, 'warning'); // max of 85% (7d) and 95% (30d) is 95% which is warning
   });
 
   it('uses pool_snapshots fallback when API fails', async () => {
@@ -111,17 +126,28 @@ describe('runBudgetSync', () => {
       fetchSignedUrl: async <T>() => ({}) as T,
     };
 
+    testPoolSnapshot = {
+      totalCredits: '9000',
+      creditsUsed: '6000',
+      forecast7d: '9000',
+      forecast30d: '9500',
+    };
+
     db.select = vi.fn().mockImplementation(() => ({
-      from: vi.fn().mockImplementation(() => ({
-        orderBy: vi.fn().mockReturnValue({
-          limit: vi.fn().mockResolvedValue([
-            { forecast7d: '9000', forecast30d: 9500 },
-          ]),
-        }),
-        where: vi.fn().mockReturnValue({
-          limit: vi.fn().mockResolvedValue([]),
-        }),
-      })),
+      from: vi.fn().mockImplementation((table: any) => {
+        if (table === poolSnapshotsSq) {
+          return {
+            orderBy: vi.fn().mockReturnValue({
+              limit: vi.fn().mockResolvedValue([testPoolSnapshot]),
+            }),
+          };
+        }
+        return {
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue([]),
+          }),
+        };
+      }),
     }));
 
     const config: BudgetSyncConfig = {
@@ -149,6 +175,8 @@ describe('runBudgetSync', () => {
       org: 'acme-inc',
       fetchSignedUrl: async <T>() => ({}) as T,
     };
+
+    testPoolSnapshot = null;
 
     db.select = vi.fn().mockImplementation(() => ({
       from: vi.fn().mockImplementation(() => ({
@@ -180,11 +208,13 @@ describe('runBudgetSync', () => {
   });
 
   it('computes alert_level as critical when pct_of_budget >= 110', async () => {
-    github = createMockGitHubClient({
-      total_budget: 10000,
-      forecast_7d: 11500,
-      forecast_30d: 11200,
-    });
+    github = createMockGitHubClient({ budget_used: 7500 });
+    testPoolSnapshot = {
+      totalCredits: '10000',
+      creditsUsed: '7500',
+      forecast7d: '11500',
+      forecast30d: '11200',
+    };
 
     const config: BudgetSyncConfig = {
       db,
@@ -201,11 +231,13 @@ describe('runBudgetSync', () => {
   });
 
   it('computes alert_level as escalation when pct_of_budget >= 100', async () => {
-    github = createMockGitHubClient({
-      total_budget: 10000,
-      forecast_7d: 10500,
-      forecast_30d: 10200,
-    });
+    github = createMockGitHubClient({ budget_used: 7500 });
+    testPoolSnapshot = {
+      totalCredits: '10000',
+      creditsUsed: '7500',
+      forecast7d: '10500',
+      forecast30d: '10200',
+    };
 
     const config: BudgetSyncConfig = {
       db,
@@ -222,11 +254,13 @@ describe('runBudgetSync', () => {
   });
 
   it('computes alert_level as warning when pct_of_budget >= 90', async () => {
-    github = createMockGitHubClient({
-      total_budget: 10000,
-      forecast_7d: 9500,
-      forecast_30d: 9200,
-    });
+    github = createMockGitHubClient({ budget_used: 7500 });
+    testPoolSnapshot = {
+      totalCredits: '10000',
+      creditsUsed: '7500',
+      forecast7d: '9500',
+      forecast30d: '9200',
+    };
 
     const config: BudgetSyncConfig = {
       db,
@@ -243,11 +277,13 @@ describe('runBudgetSync', () => {
   });
 
   it('computes alert_level as ok when pct_of_budget < 90', async () => {
-    github = createMockGitHubClient({
-      total_budget: 10000,
-      forecast_7d: 8500,
-      forecast_30d: 8800,
-    });
+    github = createMockGitHubClient({ budget_used: 7500 });
+    testPoolSnapshot = {
+      totalCredits: '10000',
+      creditsUsed: '7500',
+      forecast7d: '8500',
+      forecast30d: '8800',
+    };
 
     const config: BudgetSyncConfig = {
       db,
@@ -264,13 +300,20 @@ describe('runBudgetSync', () => {
   });
 
   it('does not notify when alert_level is unchanged from yesterday', async () => {
+    testPoolSnapshot = {
+      totalCredits: '10000',
+      creditsUsed: '7500',
+      forecast7d: '9500',
+      forecast30d: '9200',
+    };
+
     db.select = vi.fn().mockImplementation((fields: any) => {
       const mockSelect = {
         from: vi.fn().mockImplementation((table: any) => {
           if (table === poolSnapshotsSq) {
             return {
               orderBy: vi.fn().mockReturnValue({
-                limit: vi.fn().mockResolvedValue([]),
+                limit: vi.fn().mockResolvedValue([testPoolSnapshot]),
               }),
             };
           } else if (table === budgetSnapshotsSq) {
@@ -318,13 +361,20 @@ describe('runBudgetSync', () => {
   });
 
   it('notifies when alert_level changes from yesterday', async () => {
+    testPoolSnapshot = {
+      totalCredits: '10000',
+      creditsUsed: '7500',
+      forecast7d: '9500',
+      forecast30d: '9200',
+    };
+
     db.select = vi.fn().mockImplementation((fields: any) => {
       const mockSelect = {
         from: vi.fn().mockImplementation((table: any) => {
           if (table === poolSnapshotsSq) {
             return {
               orderBy: vi.fn().mockReturnValue({
-                limit: vi.fn().mockResolvedValue([]),
+                limit: vi.fn().mockResolvedValue([testPoolSnapshot]),
               }),
             };
           } else if (table === budgetSnapshotsSq) {
@@ -373,13 +423,20 @@ describe('runBudgetSync', () => {
   });
 
   it('sends all_clear notification when alert_level returns to ok', async () => {
+    testPoolSnapshot = {
+      totalCredits: '10000',
+      creditsUsed: '7500',
+      forecast7d: '8500',
+      forecast30d: '8800',
+    };
+
     db.select = vi.fn().mockImplementation((fields: any) => {
       const mockSelect = {
         from: vi.fn().mockImplementation((table: any) => {
           if (table === poolSnapshotsSq) {
             return {
               orderBy: vi.fn().mockReturnValue({
-                limit: vi.fn().mockResolvedValue([]),
+                limit: vi.fn().mockResolvedValue([testPoolSnapshot]),
               }),
             };
           } else if (table === budgetSnapshotsSq) {
@@ -409,11 +466,7 @@ describe('runBudgetSync', () => {
 
     vi.stubGlobal('fetch', mockFetch);
 
-    github = createMockGitHubClient({
-      total_budget: 10000,
-      forecast_7d: 8000,
-      forecast_30d: 8500,
-    });
+    github = createMockGitHubClient({ budget_used: 7500 });
 
     const config: BudgetSyncConfig = {
       db,
@@ -463,13 +516,20 @@ describe('runBudgetSync', () => {
   });
 
   it('handles partial notification failure (Slack fails, GitHub succeeds)', async () => {
+    testPoolSnapshot = {
+      totalCredits: '10000',
+      creditsUsed: '7500',
+      forecast7d: '9500',
+      forecast30d: '9200',
+    };
+
     db.select = vi.fn().mockImplementation((fields: any) => {
       const mockSelect = {
         from: vi.fn().mockImplementation((table: any) => {
           if (table === poolSnapshotsSq) {
             return {
               orderBy: vi.fn().mockReturnValue({
-                limit: vi.fn().mockResolvedValue([]),
+                limit: vi.fn().mockResolvedValue([testPoolSnapshot]),
               }),
             };
           } else if (table === budgetSnapshotsSq) {

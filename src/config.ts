@@ -31,12 +31,30 @@ function expandEnvObj(obj: any): any {
 }
 
 export function loadConfig(filePath: string): BurnrateConfig {
-  const raw = readFileSync(filePath, 'utf8');
-  const parsed = expandEnvObj(parse(raw)) as Partial<BurnrateConfig>;
-  if (!parsed.github?.enterprise) throw new Error('Missing burnrate.yml github.enterprise');
-  if (!parsed.github?.org) throw new Error('Missing burnrate.yml github.org');
-  if (!parsed.github?.token) throw new Error('Missing burnrate.yml github.token');
-  if (!parsed.postgres?.url) throw new Error('Missing burnrate.yml postgres.url');
-  return parsed as BurnrateConfig;
+  let fileConfig: Partial<BurnrateConfig> = {};
+
+  try {
+    const raw = readFileSync(filePath, 'utf8');
+    fileConfig = expandEnvObj(parse(raw)) as Partial<BurnrateConfig>;
+  } catch (err: any) {
+    if (err.code !== 'ENOENT') {
+      throw err;
+    }
+  }
+
+  const enterprise = process.env.GITHUB_ENTERPRISE || fileConfig.github?.enterprise;
+  const org = process.env.GITHUB_ORG || fileConfig.github?.org;
+  const token = process.env.GITHUB_TOKEN || fileConfig.github?.token;
+  const url = process.env.DATABASE_URL || fileConfig.postgres?.url;
+
+  if (!enterprise) throw new Error('Missing burnrate.yml github.enterprise');
+  if (!org) throw new Error('Missing burnrate.yml github.org');
+  if (!token) throw new Error('Missing burnrate.yml github.token');
+  if (!url) throw new Error('Missing burnrate.yml postgres.url');
+
+  return {
+    github: { enterprise, org, token },
+    postgres: { url },
+  };
 }
 

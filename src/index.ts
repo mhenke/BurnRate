@@ -1,4 +1,5 @@
 import { fileURLToPath } from 'node:url';
+import { existsSync } from 'node:fs';
 import { config } from 'dotenv';
 import { loadConfig, type BurnrateConfig } from './config.js';
 import { initDb, closeDb } from './db/client.js';
@@ -10,6 +11,8 @@ import { runClassify } from './classify/runner.js';
 import { runBudgetSync } from './budget/budget_sync.js';
 import { sql, gte, desc } from 'drizzle-orm';
 import { dailyUsagePg, dailyUsageSq, poolSnapshotsPg, poolSnapshotsSq } from './db/schema.js';
+import { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
 config();
 
@@ -74,6 +77,10 @@ function parseClassifyArgs(argv: string[]): { valueConfigPath: string; report: b
     throw new Error(`Unknown classify flag: ${arg}`);
   }
 
+  if (!process.env.VALUE_CONFIG_PATH && valueConfigPath === 'config/value_config.yml' && !existsSync(valueConfigPath)) {
+    valueConfigPath = 'config/value_config.sample.yml';
+  }
+
   return { valueConfigPath, report };
 }
 
@@ -117,22 +124,58 @@ export async function main(argv: string[]): Promise<void> {
   if (command === 'forecast') {
     const cfg = getConfig();
     const db = initDb(cfg.postgres.url);
-    const isSqlite = typeof db.run === 'function';
+    const isSqlite = typeof (db as any).run === 'function';
 
     const thresholdDate = new Date();
     thresholdDate.setDate(thresholdDate.getDate() - 30);
     const dateString = thresholdDate.toISOString().slice(0, 10);
 
-    const dailyUsageTable = isSqlite ? dailyUsageSq : dailyUsagePg;
-    const rows = await db
-      .select({
-        usage_date: dailyUsageTable.usageDate,
-        credits: sql<number>`SUM(${dailyUsageTable.credits})`.mapWith(Number),
-      })
-      .from(dailyUsageTable)
-      .where(gte(dailyUsageTable.usageDate, dateString))
-      .groupBy(dailyUsageTable.usageDate)
-      .orderBy(dailyUsageTable.usageDate);
+    let rows: { usage_date: string; credits: number }[] = [];
+    let poolTotal = 0;
+
+    if (isSqlite) {
+      const sqliteDb = db as BetterSQLite3Database<any>;
+      const rawRows = await sqliteDb
+        .select({
+          usage_date: dailyUsageSq.usageDate,
+          credits: sql<number>`SUM(${dailyUsageSq.credits})`.mapWith(Number),
+        })
+        .from(dailyUsageSq)
+        .where(gte(dailyUsageSq.usageDate, dateString))
+        .groupBy(dailyUsageSq.usageDate)
+        .orderBy(dailyUsageSq.usageDate);
+      rows = rawRows;
+
+      const poolRows = await sqliteDb
+        .select({
+          total_credits: poolSnapshotsSq.totalCredits,
+        })
+        .from(poolSnapshotsSq)
+        .orderBy(desc(poolSnapshotsSq.snapshotDate))
+        .limit(1);
+      poolTotal = poolRows.length > 0 ? Number(poolRows[0].total_credits) : 0;
+    } else {
+      const pgDb = db as NodePgDatabase<any>;
+      const rawRows = await pgDb
+        .select({
+          usage_date: dailyUsagePg.usageDate,
+          credits: sql<number>`SUM(${dailyUsagePg.credits})`.mapWith(Number),
+        })
+        .from(dailyUsagePg)
+        .where(gte(dailyUsagePg.usageDate, dateString))
+        .groupBy(dailyUsagePg.usageDate)
+        .orderBy(dailyUsagePg.usageDate);
+      rows = rawRows as any;
+
+      const poolRows = await pgDb
+        .select({
+          total_credits: poolSnapshotsPg.totalCredits,
+        })
+        .from(poolSnapshotsPg)
+        .orderBy(desc(poolSnapshotsPg.snapshotDate))
+        .limit(1);
+      poolTotal = poolRows.length > 0 ? Number(poolRows[0].total_credits) : 0;
+    }
 
     const now = new Date();
     const firstOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
@@ -151,16 +194,6 @@ export async function main(argv: string[]): Promise<void> {
         daysElapsed = parseInt(parts[2], 10);
       }
     }
-
-    const poolSnapshotsTable = isSqlite ? poolSnapshotsSq : poolSnapshotsPg;
-    const poolRows = await db
-      .select({
-        total_credits: poolSnapshotsTable.totalCredits,
-      })
-      .from(poolSnapshotsTable)
-      .orderBy(desc(poolSnapshotsTable.snapshotDate))
-      .limit(1);
-    const poolTotal = poolRows.length > 0 ? Number(poolRows[0].total_credits) : 0;
 
     const forecast = computeForecast({
       dailyCredits,

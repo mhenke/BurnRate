@@ -17,7 +17,7 @@
 - Modify: `src/db/migrate.ts` (add DDL for both tables)
 - Create: `tests/db/phase3_schema.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { strict as assert } from 'node:assert';
@@ -36,12 +36,12 @@ describe('phase 3 schema', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/db/phase3_schema.test.ts`
 Expected: fail because schema tables don't exist yet.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Add to `src/db/schema.ts`:
 - `budgetSnapshotsPg` / `budgetSnapshotsSq` with columns: `snapshot_date` (PK), `total_budget`, `budget_used`, `budget_remaining`, `pct_used`, `pct_elapsed`, `forecast_7d`, `forecast_30d`, `pct_of_budget_7d`, `pct_of_budget_30d`, `alert_level`, `notified`, `source`, `note`, `created_at`, `updated_at`
@@ -51,12 +51,12 @@ Add to `src/db/schema.ts`:
 Add to `src/db/migrate.ts`:
 - Corresponding `CREATE TABLE IF NOT EXISTS` statements in both `pgSchemaStatements` and `sqliteSchemaStatements`
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/db/phase3_schema.test.ts`
 Expected: pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/db/schema.ts src/db/migrate.ts tests/db/phase3_schema.test.ts
@@ -71,7 +71,7 @@ git commit -m "feat: add budget_snapshots and notification_log schema"
 - Create: `src/budget/retry.ts`
 - Create: `tests/budget/retry.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { strict as assert } from 'node:assert';
@@ -85,12 +85,12 @@ describe('retry utility', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/budget/retry.test.ts`
 Expected: fail because module doesn't exist.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Implement `src/budget/retry.ts`:
 ```typescript
@@ -123,7 +123,7 @@ export async function withRetry<T>(
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/budget/retry.test.ts`
 Expected: pass.
@@ -138,7 +138,7 @@ Expected: pass.
 - Create: `src/github/budget.ts`
 - Create: `tests/github/budget.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { strict as assert } from 'node:assert';
@@ -152,12 +152,12 @@ describe('budget API client', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/github/budget.test.ts`
 Expected: fail.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Implement `src/github/budget.ts` with:
 - `fetchBilling(client: GitHubClient): Promise<CopilotBillingResponse>`
@@ -166,7 +166,7 @@ Implement `src/github/budget.ts` with:
 - Wraps call with `withRetry` for network/5xx errors
 - 401/403/404 throw immediately
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/github/budget.test.ts`
 Expected: pass.
@@ -179,7 +179,7 @@ Expected: pass.
 - Create: `src/budget/notifications.ts`
 - Create: `tests/budget/notifications.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { strict as assert } from 'node:assert';
@@ -193,12 +193,12 @@ describe('notifications', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/budget/notifications.test.ts`
 Expected: fail.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Implement `src/budget/notifications.ts`:
 - `sendSlackNotification(webhookUrl, payload, retryDelay?)` — POST to Slack webhook with retry via `withRetry`. Injectable `retryDelay` for testing.
@@ -213,7 +213,7 @@ Tests cover:
 - Dedup (existing successful notification_log entry)
 - Missing webhook URL skip
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/budget/notifications.test.ts`
 Expected: pass.
@@ -226,7 +226,7 @@ Expected: pass.
 - Create: `src/budget/budget_sync.ts`
 - Create: `tests/budget/budget_sync.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { strict as assert } from 'node:assert';
@@ -240,12 +240,12 @@ describe('budget sync pipeline', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/budget/budget_sync.test.ts`
 Expected: fail.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Implement `src/budget/budget_sync.ts` with steps:
 1. Fetch billing via `fetchBilling(gh)` — fallback to `pool_snapshots` if API fields absent; reject annual budgets
@@ -260,12 +260,12 @@ Implement `src/budget/budget_sync.ts` with steps:
 
 Use structured JSON logging throughout (`{"event": "...", ...}`).
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/budget/budget_sync.test.ts`
 Expected: pass.
 
-- [ ] **Step 5: Commit Tasks 2–5**
+- [x] **Step 5: Commit Tasks 2–5**
 
 ```bash
 git add src/budget/ src/github/budget.ts tests/budget/ tests/github/budget.test.ts
@@ -281,7 +281,7 @@ git commit -m "feat: add budget sync pipeline with retry, API client, notificati
 - Modify: `package.json`
 - Create: `tests/budget/budget_sync.cli.test.ts` (or add to `tests/index.test.ts`)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `tests/index.test.ts`:
 ```ts
@@ -290,12 +290,12 @@ it('routes the budget-sync command', async () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/index.test.ts`
 Expected: fail (new test, not yet implemented).
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Add to `src/index.ts`:
 - Import `runBudgetSync` from `./budget/budget_sync.js`
@@ -307,7 +307,7 @@ Add to `package.json`:
 "budget-sync": "tsx src/index.ts budget-sync"
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/index.test.ts`
 Expected: pass.
@@ -319,11 +319,11 @@ Expected: pass.
 **Files:**
 - Create: `.github/workflows/daily-budget-check.yml`
 
-- [ ] **Step 1: Write the failing test** (not applicable — no test for workflow files)
+- [x] **Step 1: Write the failing test** (not applicable — no test for workflow files)
 
-- [ ] **Step 2: Verify the workflow** (not applicable — GitHub Actions validates at runtime)
+- [x] **Step 2: Verify the workflow** (not applicable — GitHub Actions validates at runtime)
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Create `.github/workflows/daily-budget-check.yml`:
 ```yaml
@@ -351,12 +351,12 @@ jobs:
           DRY_RUN: ${{ vars.DRY_RUN || 'false' }}
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run: `npm test` (all tests pass)
 Run: `npm run build` (compiles cleanly)
 
-- [ ] **Step 5: Commit Tasks 6–7**
+- [x] **Step 5: Commit Tasks 6–7**
 
 ```bash
 git add src/index.ts package.json .github/workflows/daily-budget-check.yml tests/index.test.ts
@@ -367,17 +367,17 @@ git commit -m "feat: wire budget-sync CLI command and daily workflow"
 
 ### Verification checklist for Phase 3
 
-- [ ] `npm run build` succeeds
-- [ ] `npm test` succeeds (all existing + new tests)
-- [ ] `npm run budget-sync -- --dry-run` runs without writing to DB or sending notifications
-- [ ] `npm run budget-sync -- --dry-run --json-logs` outputs JSON-structured logs
-- [ ] Budget API fallback path works (tested via mock)
-- [ ] Notification dedup works (same snapshot_date + channel + type skipped)
-- [ ] Alert level change-only notification works (same level produces no notification)
-- [ ] All-clear notification fires when alert_level returns to ok
-- [ ] `withRetry` exhausts retries and throws final error
-- [ ] `withRetry` injectable delay works in tests
-- [ ] GitHub Actions workflow exists and uses `GITHUB_PAT` secret
-- [ ] SQLite `ON CONFLICT DO UPDATE` works correctly (integration test)
-- [ ] Empty `pool_snapshots` table doesn't crash the pipeline
-- [ ] No budget-limit writes to GitHub occur
+- [x] `npm run build` succeeds
+- [x] `npm test` succeeds (all existing + new tests)
+- [x] `npm run budget-sync -- --dry-run` runs without writing to DB or sending notifications
+- [x] `npm run budget-sync -- --dry-run --json-logs` outputs JSON-structured logs
+- [x] Budget API fallback path works (tested via mock)
+- [x] Notification dedup works (same snapshot_date + channel + type skipped)
+- [x] Alert level change-only notification works (same level produces no notification)
+- [x] All-clear notification fires when alert_level returns to ok
+- [x] `withRetry` exhausts retries and throws final error
+- [x] `withRetry` injectable delay works in tests
+- [x] GitHub Actions workflow exists and uses `GITHUB_PAT` secret
+- [x] SQLite `ON CONFLICT DO UPDATE` works correctly (integration test)
+- [x] Empty `pool_snapshots` table doesn't crash the pipeline
+- [x] No budget-limit writes to GitHub occur

@@ -16,12 +16,9 @@ jobs:
           node-version: '22'
           cache: 'npm'
       - run: npm ci
-      - name: Setup Configuration Files
-        run: |
-          cp config/burnrate.sample.yml config/burnrate.yml
-          cp config/value_config.sample.yml config/value_config.yml
       - run: npm run etl
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_PAT }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          BURNRATE_CONFIG: config/burnrate.yml
+          GITHUB_ENTERPRISE: ${{ secrets.GITHUB_ENTERPRISE }}
+          GITHUB_ORG: ${{ secrets.GITHUB_ORG }}

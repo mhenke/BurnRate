@@ -4,6 +4,8 @@ import { fetchBilling, type BudgetReport } from '../github/budget.js';
 import { budgetSnapshotsPg, budgetSnapshotsSq, notificationLogPg, notificationLogSq, poolSnapshotsPg, poolSnapshotsSq } from '../db/schema.js';
 import { sendSlackNotification, sendGitHubIssue, sanitizeErrorMessage, type SlackConfig, type GitHubIssueConfig } from './notifications.js';
 import { eq, desc, sql } from 'drizzle-orm';
+import { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
 export type BudgetSyncConfig = {
   db: DbClient;
@@ -32,6 +34,8 @@ export type BudgetSyncResult = {
 type PoolSnapshot = {
   forecast7d: string | number | null;
   forecast30d: string | number | null;
+  totalCredits: string | number | null;
+  creditsUsed: string | number | null;
 };
 
 type BudgetSnapshot = {
@@ -65,38 +69,55 @@ function computeAlertLevel(pctOfBudget7d: number | null, pctOfBudget30d: number 
 }
 
 async function getLatestPoolSnapshot(db: DbClient): Promise<PoolSnapshot | null> {
-  const isPg = typeof db.run !== 'function' && !db.constructor?.name?.toLowerCase().includes('sqlite');
+  const isPg = typeof (db as any).run !== 'function';
   
   if (isPg) {
-    const results = await db
+    const pgDb = db as NodePgDatabase<any>;
+    const results = await pgDb
       .select({
         forecast7d: poolSnapshotsPg.forecast7d,
         forecast30d: poolSnapshotsPg.forecast30d,
+        totalCredits: poolSnapshotsPg.totalCredits,
+        creditsUsed: poolSnapshotsPg.creditsUsed,
       })
       .from(poolSnapshotsPg)
       .orderBy(desc(poolSnapshotsPg.snapshotDate))
       .limit(1);
     
-    return results.length > 0 ? { forecast7d: results[0].forecast7d, forecast30d: results[0].forecast30d } : null;
+    return results.length > 0 ? {
+      forecast7d: results[0].forecast7d,
+      forecast30d: results[0].forecast30d,
+      totalCredits: results[0].totalCredits,
+      creditsUsed: results[0].creditsUsed,
+    } : null;
   } else {
-    const results = await db
+    const sqDb = db as BetterSQLite3Database<any>;
+    const results = await sqDb
       .select({
         forecast7d: poolSnapshotsSq.forecast7d,
         forecast30d: poolSnapshotsSq.forecast30d,
+        totalCredits: poolSnapshotsSq.totalCredits,
+        creditsUsed: poolSnapshotsSq.creditsUsed,
       })
       .from(poolSnapshotsSq)
       .orderBy(desc(poolSnapshotsSq.snapshotDate))
       .limit(1);
     
-    return results.length > 0 ? { forecast7d: results[0].forecast7d, forecast30d: results[0].forecast30d } : null;
+    return results.length > 0 ? {
+      forecast7d: results[0].forecast7d,
+      forecast30d: results[0].forecast30d,
+      totalCredits: results[0].totalCredits,
+      creditsUsed: results[0].creditsUsed,
+    } : null;
   }
 }
 
 async function getYesterdaySnapshot(db: DbClient, date: string): Promise<BudgetSnapshot | null> {
-  const isPg = typeof db.run !== 'function' && !db.constructor?.name?.toLowerCase().includes('sqlite');
+  const isPg = typeof (db as any).run !== 'function';
   
   if (isPg) {
-    const results = await db
+    const pgDb = db as NodePgDatabase<any>;
+    const results = await pgDb
       .select({
         snapshotDate: budgetSnapshotsPg.snapshotDate,
         alertLevel: budgetSnapshotsPg.alertLevel,
@@ -107,7 +128,8 @@ async function getYesterdaySnapshot(db: DbClient, date: string): Promise<BudgetS
     
     return results.length > 0 ? { snapshotDate: results[0].snapshotDate, alertLevel: results[0].alertLevel } : null;
   } else {
-    const results = await db
+    const sqDb = db as BetterSQLite3Database<any>;
+    const results = await sqDb
       .select({
         snapshotDate: budgetSnapshotsSq.snapshotDate,
         alertLevel: budgetSnapshotsSq.alertLevel,
@@ -138,10 +160,11 @@ async function upsertBudgetSnapshot(
     note: string | null;
   },
 ): Promise<void> {
-  const isPg = typeof db.run !== 'function' && !db.constructor?.name?.toLowerCase().includes('sqlite');
+  const isPg = typeof (db as any).run !== 'function';
   
   if (isPg) {
-    await db
+    const pgDb = db as NodePgDatabase<any>;
+    await pgDb
       .insert(budgetSnapshotsPg)
       .values({
         snapshotDate: data.snapshotDate,
@@ -177,7 +200,8 @@ async function upsertBudgetSnapshot(
         },
       });
   } else {
-    await db
+    const sqDb = db as BetterSQLite3Database<any>;
+    await sqDb
       .insert(budgetSnapshotsSq)
       .values({
         snapshotDate: data.snapshotDate,
@@ -249,7 +273,7 @@ export async function runBudgetSync(config: BudgetSyncConfig): Promise<BudgetSyn
   let forecast7d: number | null = null;
   let forecast30d: number | null = null;
   
-  if (source === 'api' && billingReport) {
+  if (source === 'api' && billingReport && billingReport.total_budget > 0) {
     totalBudget = billingReport.total_budget;
     budgetUsed = billingReport.budget_used;
     forecast7d = billingReport.forecast_7d ?? null;
@@ -257,11 +281,11 @@ export async function runBudgetSync(config: BudgetSyncConfig): Promise<BudgetSyn
   } else {
     if (!poolSnapshot) {
       totalBudget = 0;
-      budgetUsed = 0;
+      budgetUsed = billingReport?.budget_used ?? 0;
       note = note ? `${note}; pool_snapshots empty` : 'pool_snapshots empty';
     } else {
-      totalBudget = parseNumeric(poolSnapshot.forecast7d) ?? parseNumeric(poolSnapshot.forecast30d) ?? 0;
-      budgetUsed = 0;
+      totalBudget = parseNumeric(poolSnapshot.totalCredits) ?? 0;
+      budgetUsed = billingReport?.budget_used ?? parseNumeric(poolSnapshot.creditsUsed) ?? 0;
       forecast7d = parseNumeric(poolSnapshot.forecast7d);
       forecast30d = parseNumeric(poolSnapshot.forecast30d);
     }

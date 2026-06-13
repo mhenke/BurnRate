@@ -3,6 +3,8 @@ import { classifyUsers } from './engine.js';
 import type { DbClient } from '../db/client.js';
 import { sql, gte } from 'drizzle-orm';
 import { usersPg, usersSq, classificationHistoryPg, classificationHistorySq, dailyUsagePg, dailyUsageSq } from '../db/schema.js';
+import { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
 export type ClassifyOptions = {
   valueConfigPath: string;
@@ -17,82 +19,113 @@ export type ClassifyRunnerResult = {
   missingTeamCount: number;
 };
 
-function getTables(isSqlite: boolean) {
-  if (isSqlite) {
-    return { users: usersSq, classificationHistory: classificationHistorySq };
-  }
-  return { users: usersPg, classificationHistory: classificationHistoryPg };
-}
-
 export async function runClassify(
   db: DbClient,
   options: ClassifyOptions,
 ): Promise<ClassifyRunnerResult> {
-  const isSqlite = typeof db.run === 'function';
-  const T = getTables(isSqlite);
+  const isSqlite = typeof (db as any).run === 'function';
 
   // Load value config
   const valueConfig = loadValueConfig(options.valueConfigPath);
   const resolveValueTier = (team: string | null) => resolveValueTierFn(team, valueConfig);
-
-  const dailyUsageTable = isSqlite ? dailyUsageSq : dailyUsagePg;
-  const usersTable = isSqlite ? usersSq : usersPg;
 
   // Calculate threshold date (30 days ago) in JS as YYYY-MM-DD
   const thresholdDate = new Date();
   thresholdDate.setDate(thresholdDate.getDate() - 30);
   const dateString = thresholdDate.toISOString().slice(0, 10);
 
-  // Read phase: get 30 days of daily_usage aggregates using Drizzle
-  const usageRows = await db
-    .select({
-      github_login: dailyUsageTable.githubLogin,
-      credits: sql<number>`SUM(${dailyUsageTable.credits})`.mapWith(Number),
-    })
-    .from(dailyUsageTable)
-    .where(gte(dailyUsageTable.usageDate, dateString))
-    .groupBy(dailyUsageTable.githubLogin);
+  let usageRows: { github_login: string | null; credits: number }[] = [];
+  let distinctDays = 0;
+  let usersRows: {
+    github_login: string;
+    team: string | null;
+    consumption_tier: string | null;
+    value_tier: string | null;
+    bucket_updated_at: string | Date | null;
+  }[] = [];
+
+  if (isSqlite) {
+    const sqliteDb = db as BetterSQLite3Database<any>;
+    const rawUsage = await sqliteDb
+      .select({
+        github_login: dailyUsageSq.githubLogin,
+        credits: sql<number>`SUM(${dailyUsageSq.credits})`.mapWith(Number),
+      })
+      .from(dailyUsageSq)
+      .where(gte(dailyUsageSq.usageDate, dateString))
+      .groupBy(dailyUsageSq.githubLogin);
+    usageRows = rawUsage;
+
+    const daysResult = await sqliteDb
+      .select({
+        days: sql<number>`COUNT(DISTINCT ${dailyUsageSq.usageDate})`.mapWith(Number),
+      })
+      .from(dailyUsageSq)
+      .where(gte(dailyUsageSq.usageDate, dateString));
+    distinctDays = daysResult[0]?.days ?? 0;
+
+    const rawUsers = await sqliteDb
+      .select({
+        github_login: usersSq.githubLogin,
+        team: usersSq.team,
+        consumption_tier: usersSq.consumptionTier,
+        value_tier: usersSq.valueTier,
+        bucket_updated_at: usersSq.bucketUpdatedAt,
+      })
+      .from(usersSq);
+    usersRows = rawUsers;
+  } else {
+    const pgDb = db as NodePgDatabase<any>;
+    const rawUsage = await pgDb
+      .select({
+        github_login: dailyUsagePg.githubLogin,
+        credits: sql<number>`SUM(${dailyUsagePg.credits})`.mapWith(Number),
+      })
+      .from(dailyUsagePg)
+      .where(gte(dailyUsagePg.usageDate, dateString))
+      .groupBy(dailyUsagePg.githubLogin);
+    usageRows = rawUsage as any;
+
+    const daysResult = await pgDb
+      .select({
+        days: sql<number>`COUNT(DISTINCT ${dailyUsagePg.usageDate})`.mapWith(Number),
+      })
+      .from(dailyUsagePg)
+      .where(gte(dailyUsagePg.usageDate, dateString));
+    distinctDays = daysResult[0]?.days ?? 0;
+
+    const rawUsers = await pgDb
+      .select({
+        github_login: usersPg.githubLogin,
+        team: usersPg.team,
+        consumption_tier: usersPg.consumptionTier,
+        value_tier: usersPg.valueTier,
+        bucket_updated_at: usersPg.bucketUpdatedAt,
+      })
+      .from(usersPg);
+    usersRows = rawUsers as any;
+  }
 
   if (usageRows.length === 0) {
     throw new Error('No daily_usage data found. Run `burnrate etl` first.');
   }
 
-  // Check for 30 distinct days using Drizzle
-  const daysResult = await db
-    .select({
-      days: sql<number>`COUNT(DISTINCT ${dailyUsageTable.usageDate})`.mapWith(Number),
-    })
-    .from(dailyUsageTable)
-    .where(gte(dailyUsageTable.usageDate, dateString));
-
-  const distinctDays = daysResult[0]?.days ?? 0;
   if (distinctDays < 30) {
     throw new Error(`Insufficient data: only ${distinctDays} distinct days found, need 30.`);
   }
 
-  // Read current users using Drizzle
-  const usersRows = await db
-    .select({
-      github_login: usersTable.githubLogin,
-      team: usersTable.team,
-      consumption_tier: usersTable.consumptionTier,
-      value_tier: usersTable.valueTier,
-      bucket_updated_at: usersTable.bucketUpdatedAt,
-    })
-    .from(usersTable);
-
   // Classify
-  const userCredits = usageRows.map((r: any) => ({
-    githubLogin: r.github_login,
+  const userCredits = usageRows.map((r) => ({
+    githubLogin: r.github_login || '',
     totalCredits: Number(r.credits),
   }));
 
-  const currentUsers = usersRows.map((r: any) => ({
+  const currentUsers = usersRows.map((r) => ({
     githubLogin: r.github_login,
     team: r.team,
     consumptionTier: r.consumption_tier,
     valueTier: r.value_tier,
-    bucketUpdatedAt: r.bucket_updated_at,
+    bucketUpdatedAt: r.bucket_updated_at instanceof Date ? r.bucket_updated_at.toISOString() : r.bucket_updated_at,
   }));
 
   const effectiveDate = new Date().toISOString().slice(0, 10);
@@ -103,7 +136,8 @@ export async function runClassify(
     const now = new Date().toISOString();
 
     if (isSqlite) {
-      db.transaction((tx: any) => {
+      const sqliteDb = db as BetterSQLite3Database<any>;
+      sqliteDb.transaction((tx) => {
         for (const change of result.changes) {
           tx.update(usersSq)
             .set({
@@ -129,7 +163,8 @@ export async function runClassify(
         }
       });
     } else {
-      await db.transaction(async (tx: any) => {
+      const pgDb = db as NodePgDatabase<any>;
+      await pgDb.transaction(async (tx) => {
         for (const change of result.changes) {
           await tx.update(usersPg)
             .set({

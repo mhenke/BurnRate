@@ -213,7 +213,7 @@ async function logNotification(
     errorMessage?: string;
   },
 ): Promise<void> {
-  const isPg = typeof db.run !== 'function' && !db.constructor?.name?.toLowerCase().includes('sqlite');
+  const isPg = typeof (db as any).run !== 'function';
 
   if (isPg) {
     await db.insert(notificationLogPg).values({

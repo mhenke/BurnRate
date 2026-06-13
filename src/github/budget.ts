@@ -21,10 +21,17 @@ export async function fetchBilling(
   const delayFn = options?.delayFn;
 
   return withRetry(async () => {
+    const path = client.org
+      ? '/organizations/{org}/settings/billing/ai_credit/usage'
+      : '/enterprises/{enterprise}/settings/billing/ai_credit/usage';
+    const params = client.org
+      ? { org: client.org }
+      : { enterprise: client.enterprise };
+
     const response = await client.octokit.request(
-      'GET /enterprises/{enterprise}/copilot/billing',
+      `GET ${path}`,
       {
-        enterprise: client.enterprise,
+        ...params,
         headers: {
           'X-GitHub-Api-Version': '2026-03-10',
         },
@@ -32,59 +39,31 @@ export async function fetchBilling(
     );
 
     const data = response.data as {
-      seat_management_setting?: string;
-      seat_breakdown?: {
-        total: number;
-        added_this_cycle: number;
-        pending_cancellation: number;
-        pending_invitation: number;
-      };
-      public_code_suggestions?: {
-        policy: string;
-        rollout_percentage: number;
-      };
-      platform?: {
-        total_seats: number;
-        seats_used: number;
-        seats_remaining: number;
-        pct_used: number;
-        pct_elapsed: number;
-        forecast_7d?: number;
-        forecast_30d?: number;
-      };
-      budget?: {
-        total_budget: number;
-        budget_used: number;
-        budget_remaining: number;
-        pct_used: number;
-        pct_elapsed: number;
-        forecast_7d?: number;
-        forecast_30d?: number;
-      };
+      timePeriod?: { year: number; month?: number };
+      usageItems?: Array<{
+        product: string;
+        sku: string;
+        grossQuantity: number;
+        grossAmount: number;
+        netAmount: number;
+      }>;
     };
 
-    if (!data.budget) {
-      throw new Error('Budget data not available from GitHub API');
-    }
-
-    const budget = data.budget;
-
-    let alertLevel: BudgetReport['alert_level'] = 'info';
-    if (budget.pct_used >= 90 || budget.pct_elapsed >= 90) {
-      alertLevel = 'critical';
-    } else if (budget.pct_used >= 75 || budget.pct_elapsed >= 75) {
-      alertLevel = 'warning';
+    let budgetUsed = 0;
+    if (data.usageItems && Array.isArray(data.usageItems)) {
+      for (const item of data.usageItems) {
+        if (item.sku === 'Copilot AI Credits' || item.product === 'Copilot') {
+          budgetUsed += Number(item.netAmount ?? item.grossAmount ?? 0);
+        }
+      }
     }
 
     return {
-      total_budget: budget.total_budget,
-      budget_used: budget.budget_used,
-      budget_remaining: budget.budget_remaining,
-      pct_used: budget.pct_used,
-      pct_elapsed: budget.pct_elapsed,
-      forecast_7d: budget.forecast_7d,
-      forecast_30d: budget.forecast_30d,
-      alert_level: alertLevel,
+      total_budget: 0,
+      budget_used: budgetUsed,
+      budget_remaining: 0,
+      pct_used: 0,
+      pct_elapsed: 0,
     };
   }, { maxAttempts, delays, delayFn });
 }

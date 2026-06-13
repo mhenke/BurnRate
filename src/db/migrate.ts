@@ -216,7 +216,18 @@ export async function runMigrations(db: any): Promise<void> {
   }
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+import { resolve } from 'node:path';
+
+const argv1 = process.argv[1];
+const isMain = argv1 && (
+  resolve(argv1) === resolve(fileURLToPath(import.meta.url)) ||
+  resolve(argv1) === resolve(fileURLToPath(import.meta.url)).replace(/\.[jt]s$/, '') ||
+  argv1.endsWith('/migrate') ||
+  argv1.endsWith('/migrate.js') ||
+  argv1.endsWith('/migrate.ts')
+);
+
+if (isMain) {
   const url = process.env.DATABASE_URL;
   if (!url) {
     console.error('Error: DATABASE_URL environment variable is required.');

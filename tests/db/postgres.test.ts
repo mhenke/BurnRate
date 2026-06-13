@@ -4,8 +4,9 @@ import { initDb, closeDb } from '../../src/db/client.js';
 import { runMigrations } from '../../src/db/migrate.js';
 import { runObserveOnlyPipeline } from '../../src/etl/pipeline.js';
 import { runClassify } from '../../src/classify/runner.js';
-import { sql } from 'drizzle-orm';
-import { dailyUsagePg } from '../../src/db/schema.js';
+import { runBudgetSync } from '../../src/budget/budget_sync.js';
+import { sql, eq } from 'drizzle-orm';
+import { dailyUsagePg, poolSnapshotsPg, budgetSnapshotsPg, notificationLogPg } from '../../src/db/schema.js';
 
 const pgUrl = process.env.TEST_POSTGRES_URL;
 
@@ -151,5 +152,96 @@ describe('PostgreSQL Integration Test', () => {
       showReport: false
     });
     assert.ok(classifyResult.totalUsers >= 1);
+  });
+
+  it('runs budget sync pipeline against PostgreSQL', { skip: !pgUrl }, async () => {
+    // 1. Seed pool_snapshots in postgres
+    const todayStr = new Date().toISOString().slice(0, 10);
+    await db.insert(poolSnapshotsPg).values({
+      snapshotDate: todayStr,
+      totalCredits: '10000.00',
+      creditsUsed: '5000.00',
+      creditsRemaining: '5000.00',
+      forecast7d: '9500.00',
+      forecast30d: '9200.00',
+      pctElapsed: '50.0000',
+    }).onConflictDoNothing().execute();
+
+    // 2. Mock GitHub client returning credit usage
+    const mockUsageData = {
+      timePeriod: { year: 2026, month: 6 },
+      organization: 'acme-inc',
+      usageItems: [
+        {
+          product: 'Copilot',
+          sku: 'Copilot AI Credits',
+          netAmount: 5500,
+        }
+      ]
+    };
+
+    const octokitMock = {
+      request: vi.fn().mockResolvedValue({ data: mockUsageData }),
+    };
+
+    const ghClientMock: any = {
+      octokit: octokitMock,
+      enterprise: 'acme',
+      org: 'acme-inc',
+      fetchSignedUrl: async () => ({})
+    };
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: vi.fn().mockResolvedValue({ number: 999, html_url: 'https://github.com/test' }),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    // Seed a yesterday budget snapshot so we transition from ok to warning
+    const yesterdayDate = new Date();
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterdayStr = yesterdayDate.toISOString().slice(0, 10);
+    await db.insert(budgetSnapshotsPg).values({
+      snapshotDate: yesterdayStr,
+      totalBudget: '10000.00',
+      budgetUsed: '4000.00',
+      budgetRemaining: '6000.00',
+      pctUsed: '40.0000',
+      pctElapsed: '46.0000',
+      forecast7d: '8500.00',
+      forecast30d: '8200.00',
+      pctOfBudget7d: '85.0000',
+      pctOfBudget30d: '82.0000',
+      alertLevel: 'ok',
+      notified: false,
+      source: 'pool_fallback',
+    }).onConflictDoNothing().execute();
+
+    // 3. Call runBudgetSync with postgres db
+    const syncResult = await runBudgetSync({
+      db,
+      github: ghClientMock,
+      slackWebhookUrl: 'https://hooks.slack.com/services/test',
+      issueRepoOwner: 'acme',
+      issueRepoName: 'burnrate',
+      issueRepoToken: 'ghp_test',
+      fetchOptions: { delayFn: () => Promise.resolve() },
+    });
+
+    // 4. Verify it inserts budget_snapshots and logs notifications in postgres
+    assert.equal(syncResult.alertLevel, 'warning'); // 95% forecast7d >= 90% is warning
+    assert.equal(syncResult.slackNotified, true);
+    assert.equal(syncResult.issueNotified, true);
+
+    const snapshots = await db.select().from(budgetSnapshotsPg).where(eq(budgetSnapshotsPg.snapshotDate, todayStr));
+    assert.equal(snapshots.length, 1);
+    assert.equal(snapshots[0].alertLevel, 'warning');
+
+    const logs = await db.select().from(notificationLogPg).where(eq(notificationLogPg.snapshotDate, todayStr));
+    assert.ok(logs.length >= 2); // Slack and GitHub Issue
+    assert.equal(logs[0].success, true);
+
+    vi.unstubAllGlobals();
   });
 });

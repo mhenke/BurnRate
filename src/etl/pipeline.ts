@@ -59,7 +59,7 @@ export async function runObserveOnlyPipeline(
   day: string,
 ): Promise<PipelineResult> {
   const result: PipelineResult = { rawStored: 0, usageUpserted: 0, errors: [] };
-  const isSqlite = typeof db.run === 'function';
+  const isSqlite = typeof (db as any).run === 'function';
   const T = getTables(isSqlite);
 
   // 1. Process standard 1-day reports
@@ -106,7 +106,7 @@ export async function runObserveOnlyPipeline(
         payload: rawPayload,
       });
 
-      await db.insert(T.rawReports)
+      await (db as any).insert(T.rawReports)
         .values({
           reportType: rawRow.report_type,
           reportDay: rawRow.report_date,
@@ -120,7 +120,7 @@ export async function runObserveOnlyPipeline(
       if (reportType === 'enterprise-1-day') {
         const userRows = parseEnterpriseReportToUsers(gh.enterprise, gh.org, rawPayload);
         if (userRows.length > 0) {
-          await db.insert(T.users)
+          await (db as any).insert(T.users)
             .values(userRows)
             .onConflictDoUpdate({
               target: T.users.githubLogin,
@@ -141,7 +141,7 @@ export async function runObserveOnlyPipeline(
       } else if (reportType === 'users-1-day') {
         const usageRows = parseDailyUsage(rawPayload);
         if (usageRows.length > 0) {
-          await db.insert(T.dailyUsage)
+          await (db as any).insert(T.dailyUsage)
             .values(usageRows)
             .onConflictDoUpdate({
               target: [T.dailyUsage.usageDate, T.dailyUsage.githubLogin],
@@ -165,7 +165,7 @@ export async function runObserveOnlyPipeline(
       } else if (reportType === 'enterprise-user-teams-1-day') {
         const teamRows = parseTeamUsage(rawPayload);
         if (teamRows.length > 0) {
-          await db.insert(T.teamUsage)
+          await (db as any).insert(T.teamUsage)
             .values(teamRows)
             .onConflictDoUpdate({
               target: [T.teamUsage.usageDate, T.teamUsage.team],
@@ -179,7 +179,7 @@ export async function runObserveOnlyPipeline(
 
         const teamMemberRows = parseTeamMembers(rawPayload);
         if (teamMemberRows.length > 0) {
-          await db.insert(T.users)
+          await (db as any).insert(T.users)
             .values(teamMemberRows.map((row) => ({
               githubLogin: row.githubLogin,
               enterprise: gh.enterprise,
@@ -220,7 +220,7 @@ export async function runObserveOnlyPipeline(
       payload: { seats }
     });
 
-    await db.insert(T.rawReports)
+    await (db as any).insert(T.rawReports)
       .values({
         reportType: seatsRow.report_type,
         reportDay: seatsRow.report_date,
@@ -232,7 +232,7 @@ export async function runObserveOnlyPipeline(
 
     const seatUserRows = parseSeatsToUsers(gh.enterprise, gh.org, seats);
     if (seatUserRows.length > 0) {
-      await db.insert(T.users)
+      await (db as any).insert(T.users)
         .values(seatUserRows)
         .onConflictDoUpdate({
           target: T.users.githubLogin,

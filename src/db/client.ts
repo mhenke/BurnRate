@@ -3,7 +3,10 @@ import { drizzle as drizzleSqlite } from 'drizzle-orm/better-sqlite3';
 import pg from 'pg';
 import Database from 'better-sqlite3';
 
-export type DbClient = any;
+import { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+
+export type DbClient = NodePgDatabase<any> | BetterSQLite3Database<any>;
 
 let db: DbClient | null = null;
 let pgPool: pg.Pool | null = null;
