@@ -6,9 +6,9 @@
   --ink: #f7f8f8;
   --ink-muted: #d0d6e0;
   --ink-subtle: #8a8f98;
-  --primary: #5e6ad2;
+  --primary: #606ade;
   --primary-hover: #828fff;
-  --primary-focus: #5e69d1;
+  --primary-focus: #606ade;
   --hairline: #23252a;
   --hairline-strong: #34343a;
   --success: #27a644;
@@ -153,11 +153,13 @@ button {
   color: var(--ink);
 }
 
+.brand:focus-visible,
 .site-nav a:focus-visible,
 .button:focus-visible,
 .nav-toggle:focus-visible,
 .terminal-action:focus-visible,
-.code-copy:focus-visible {
+.code-copy:focus-visible,
+.footer-links a:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
@@ -479,8 +481,8 @@ code {
   width: 2rem;
   height: 2rem;
   border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  color: var(--primary);
+  background: var(--primary);
+  color: #fff;
   font-weight: 600;
 }
 

@@ -32,6 +32,14 @@ if (navToggle && nav) {
     navToggle.setAttribute('aria-expanded', String(!isOpen));
     nav.toggleAttribute('data-open', !isOpen);
   });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && navToggle.getAttribute('aria-expanded') === 'true') {
+      navToggle.setAttribute('aria-expanded', 'false');
+      nav.removeAttribute('data-open');
+      navToggle.focus();
+    }
+  });
 }
 
 navLinks.forEach((link) => {

@@ -200,7 +200,7 @@ demoRun?.addEventListener('click', () => {
 });
 ```
 
-- [ ] **Step 4: Verify the HTML is semantic and accessible**
+- [x] **Step 4: Verify the HTML is semantic and accessible**
 
 Run:
 ```bash

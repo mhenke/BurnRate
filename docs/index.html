@@ -61,7 +61,7 @@
               <span>Sample run</span>
               <button class="terminal-action" type="button" data-demo-run>Run sample</button>
             </div>
-            <pre class="terminal-body"><code data-demo-output>$ npm run forecast
+            <pre class="terminal-body"><code data-demo-output aria-live="polite" aria-atomic="true">$ npm run forecast
 ✓ loaded 28 days of usage data
 ✓ raw reports preserved in raw_reports
 → projected month-end burn: 78%
@@ -119,7 +119,7 @@
             <article class="panel prose-card">
               <h3>Install</h3>
               <div class="code-block">
-                <button class="code-copy" type="button" data-copy-button>Copy</button>
+                <button class="code-copy" type="button" data-copy-button aria-live="polite">Copy</button>
                 <pre><code>$ git clone https://github.com/mhenke/BurnRate.git
 $ cd BurnRate
 $ npm install</code></pre>
@@ -129,7 +129,7 @@ $ npm install</code></pre>
             <article class="panel prose-card">
               <h3>Configure</h3>
               <div class="code-block">
-                <button class="code-copy" type="button" data-copy-button>Copy</button>
+                <button class="code-copy" type="button" data-copy-button aria-live="polite">Copy</button>
                 <pre><code>DATABASE_URL=postgresql://user:pass@localhost:5432/burnrate
 GITHUB_TOKEN=ghp_xxx
 ENTERPRISE_SLUG=my-company</code></pre>
@@ -196,7 +196,7 @@ $ npm run forecast</code></pre>
             <article class="panel prose-card">
               <h3>Value tiers</h3>
               <div class="code-block">
-                <button class="code-copy" type="button" data-copy-button>Copy</button>
+                <button class="code-copy" type="button" data-copy-button aria-live="polite">Copy</button>
                 <pre><code>teams:
   - name: Platform Engineering
     value_tier: extreme
