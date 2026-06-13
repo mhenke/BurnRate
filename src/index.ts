@@ -100,9 +100,10 @@ export async function main(argv: string[]): Promise<void> {
     const db = initDb(cfg.postgres.url);
     const gh = createGitHubClient(cfg.github.token, cfg.github.enterprise, cfg.github.org);
 
+    const { day: targetDay, userSupplied } = parseEtlArgs(argv.slice(3));
+    console.log(`ETL target day: ${targetDay}${userSupplied ? ' (manual/backfill)' : ''}`);
     await runMigrations(db);
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-    const result = await runObserveOnlyPipeline(gh, db, yesterday);
+    const result = await runObserveOnlyPipeline(gh, db, targetDay);
     
     if (result.errors.length > 0) {
       console.error(`ETL completed with ${result.errors.length} error(s):`);
@@ -245,6 +246,47 @@ export async function main(argv: string[]): Promise<void> {
   }
 
   throw new Error(`Unknown command: ${command}`);
+}
+
+function formatIsoDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function parseEtlArgs(argv: string[]): { day: string; userSupplied: boolean } {
+  let userSupplied = false;
+  let day: string | undefined;
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+
+    if (arg === '--day') {
+      const next = argv[index + 1];
+      if (!next || next.startsWith('--')) {
+        throw new Error('Missing value after --day');
+      }
+      day = next;
+      userSupplied = true;
+      index += 1;
+      continue;
+    }
+
+    if (arg.startsWith('--day=')) {
+      day = arg.slice('--day='.length);
+      userSupplied = true;
+      continue;
+    }
+
+    throw new Error(`Unknown etl flag: ${arg}`);
+  }
+
+  if (day && !/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+    throw new Error('Day must be in YYYY-MM-DD format');
+  }
+
+  return {
+    day: day ?? formatIsoDate(new Date(Date.now() - 86400000)),
+    userSupplied,
+  };
 }
 
 // Allow direct execution

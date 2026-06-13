@@ -38,6 +38,18 @@ coverage/
 .vscode/
 *.swp
 
+# Agent scaffolding and review artifacts
+.full-review/
+.full-review-archive-*/
+.impeccable/
+.opencode/
+
+# Project-local agent skills (workspace tooling, not shipped code)
+.agents/
+
+# Binary document formats (use .md versions instead)
+*.docx
+
 # OS metadata
 .DS_Store
 .DS_Store?

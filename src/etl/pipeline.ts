@@ -18,6 +18,7 @@ import {
   teamUsagePg,
   teamUsageSq
 } from '../db/schema.js';
+import { withRetry } from '../budget/retry.js';
 
 export type PipelineResult = {
   rawStored: number;
@@ -82,7 +83,13 @@ export async function runObserveOnlyPipeline(
     }
 
     for (const link of reportData.download_links) {
-      const rawPayload = await gh.fetchSignedUrl<any>(link).catch((err) => {
+      const rawPayload = await withRetry(() => gh.fetchSignedUrl<any>(link), {
+        maxAttempts: 3,
+        delays: [1000, 2000, 4000],
+        onRetry: (attempt, err) => {
+          console.warn(`Retry ${attempt} for ${link}: ${err.message}`);
+        },
+      }).catch((err) => {
         const errorMsg = `Failed to download report payload from ${link}: ${err instanceof Error ? err.message : String(err)}`;
         console.error(errorMsg);
         result.errors.push(errorMsg);

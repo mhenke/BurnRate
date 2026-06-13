@@ -272,13 +272,13 @@ Seat Management (Section 2.1):
 
 \- Org: Classic PAT with manage_billing:copilot + read:org, or Fine-grained PAT with GitHub Copilot Business org permission
 
-\- Enterprise: Classic PAT with manage_billing:copilot or read:enterprise. Fine-grained PATs are NOT supported for enterprise endpoints.
+\- Enterprise: Classic PAT with manage_billing:copilot or read:enterprise. Fine-grained PATs are NOT supported for enterprise seat endpoints.
 
 Usage Metrics Reports (Section 2.2):
 
-\- Enterprise: Classic PAT with read:enterprise or manage_billing:copilot
+\- Enterprise: Classic PAT with read:enterprise or manage_billing:copilot. Fine-grained PAT with "Enterprise Copilot metrics" permission also supported for enterprise metrics endpoints.
 
-\- Org: Classic PAT with manage_billing:copilot + read:org
+\- Org: Classic PAT with manage_billing:copilot + read:org, or Fine-grained PAT with "GitHub Copilot Business" org permission.
 
 \- Prerequisite: \'Copilot usage metrics\' policy set to \'Enabled everywhere\' in enterprise settings (else 403).
 
@@ -303,6 +303,8 @@ Open-source deployment note: For self-hosted deployments without GitHub billing 
 **3. Data Model**
 
 Retain all data for at least 13 months to support year-over-year comparison and seasonal pattern detection. Never delete raw payloads. Note: This retention period is a BurnRate recommendation for year-over-year comparison. Self-hosted deployments may choose shorter retention based on storage constraints. Never delete raw payloads if you want the ability to re-parse after schema changes.
+
+**Database compatibility note:** Column types shown below use PostgreSQL syntax (JSONB, TIMESTAMPTZ, etc.). BurnRate targets PostgreSQL 14+ as the recommended production database. For local development and single-user evaluation, SQLite is supported via Drizzle ORM's `{ mode: 'json' }` TEXT columns, which transparently handle the JSONB → TEXT translation. The Drizzle schema defines dual table definitions (`*Pg` and `*Sq` variants) to accommodate both backends.
 
 **3.1 Core Tables**
 
@@ -453,6 +455,14 @@ The original single-axis bucket system (Light / Standard / Power) treats heavy u
 **4.1 Consumption Tier (Data-Driven)**
 
 Calculated from 30-day rolling credit consumption using percentiles. Self-adjusts as org adoption grows. The percentile thresholds (P85, P60, P25) are BurnRate design decisions, not GitHub-defined cutoffs. They can be adjusted in burnrate.yml to match your organization\'s usage distribution.
+
+**Why these cutoffs?** The 85/60/25 split follows a common quartile-adjusted distribution pattern. P85 captures the long-tail heavy users who typically account for 40-60% of pool spend despite being only 15% of the user base — these are the users where budget intervention has the highest ROI. P25 identifies the bottom quartile whose combined spend rarely exceeds 5-10% of the pool, making them primary candidates for seat reclamation if inactive. The P60/P25 middle band covers the majority of users whose behavior is driven by org averages.
+
+**Calibration guidance by org size:**
+- **<100 users:** Lower P85 to P80 to capture more users in the Extreme tier — small orgs need broader intervention coverage.
+- **100-1,000 users:** Default 85/60/25 split works well. The math stabilizes at this scale.
+- **>1,000 users:** Consider raising P85 to P90 to focus only on true outliers. Large orgs have enough Extreme users at P90 that you won't miss anyone.
+- **Monitor tier distribution monthly:** If Extreme tier consistently exceeds 20% of users, raise the threshold. If it falls below 5%, lower it. The goal is that Extreme tier users account for at least 30% of pool spend — if they don't, your thresholds are too loose.
 
   ------------- ---------------- ----------------------------------------------------
   **Tier**      **Percentile**   **Description**

@@ -29,7 +29,7 @@ GitHub Copilot billing arrives at month-end. Sometimes the number surprises you.
 
 - Node.js 22+
 - PostgreSQL (or SQLite for local dev)
-- GitHub Personal Access Token with `read:org` scope
+- GitHub Personal Access Token with `manage_billing:copilot` + `read:org` (org-level) or `read:enterprise` (enterprise-level) scope
 
 ### Installation
 
@@ -54,18 +54,40 @@ npm run migrate
 
 # Run daily ingestion
 npm run ingest
+
+> To replay a previous day (e.g., after an outage) run `npm run etl -- --day YYYY-MM-DD` to backfill that date.
 ```
 
 ### Available Commands
 
 | Command | Description |
 |---------|-------------|
-| `npm run ingest` | Fetch and store today's Copilot reports |
+| `npm run migrate` | Create or update the local database schema (PostgreSQL or SQLite) |
+| `npm run ingest` | Fetch and store today's Copilot reports (alias for `etl`) |
+| `npm run etl` | Fetch reports for a specific day (add `-- --day YYYY-MM-DD` to backfill an earlier date) |
 | `npm run forecast` | Generate burn forecasts from stored data |
 | `npm run classify` | Classify users by consumption/value tiers |
 | `npm run budget-sync` | Sync budget limits and send alerts |
 | `npm test` | Run test suite |
 | `npm run build` | Compile TypeScript |
+
+### Local Postgres (optional)
+
+BurnRate ships with `docker-compose.yml` so you can start a Postgres 14 instance locally. In a separate shell run:
+
+```bash
+docker compose up -d db
+```
+
+Then point the CLI at it:
+
+```bash
+export DATABASE_URL=postgresql://burnrate:changeme@localhost:5432/burnrate
+npm run migrate
+npm run ingest
+```
+
+This mirrors the Quick Start path without requiring an existing Postgres server.
 
 ### Copilot Agent Skills
 
@@ -109,8 +131,8 @@ BurnRate packages Copilot Agent Skills for chat interfaces (like Copilot Chat or
 | Phase | Status | Description |
 |-------|--------|-------------|
 | **Phase 1** | Complete | Observe-only ETL pipeline with raw storage |
-| **Phase 2** | Complete | User classification by consumption/value tiers |
-| **Phase 3** | Complete | Budget sync + notification hub (Slack, GitHub Issues) |
+| **Phase 2** | In progress | User classification by consumption/value tiers (weekly recalc + value tiers) |
+| **Phase 3** | In progress | Budget sync + notification hub (Slack, GitHub Issues) — automation being validated |
 | **Phase 4** | Planned | ULB enforcement with GitHub Budgets API writes |
 
 ## Configuration
@@ -122,7 +144,7 @@ BurnRate packages Copilot Agent Skills for chat interfaces (like Copilot Chat or
 DATABASE_URL=postgresql://user:pass@localhost:5432/burnrate
 
 # GitHub API
-GITHUB_TOKEN=ghp_xxx  # Personal Access Token with read:org scope
+GITHUB_TOKEN=ghp_xxx  # Classic PAT with manage_billing:copilot + read:org (org) or read:enterprise (enterprise)
 ENTERPRISE_SLUG=my-company
 
 # Notifications (Phase 3)
@@ -195,7 +217,7 @@ See `src/db/schema.ts` for full schema definitions.
 
 - **No hardcoded secrets**: All credentials via environment variables or `dotenv`
 - **Parameterized queries**: Drizzle ORM prevents SQL injection by default
-- **Token scoping**: GitHub PAT requires only `read:org` (no write permissions)
+- **Token scoping**: GitHub PAT requires `manage_billing:copilot` + `read:org` (org-level) or `read:enterprise` (enterprise-level). No write permissions needed for observe-only phases.
 - **Audit trail**: Raw payloads preserved for compliance and debugging
 - **SSRF Prevention**: `fetchSignedUrl` strictly validates that targets are HTTPS and limited to a whitelisted set of GitHub API and S3 CDN domains
 - **Config Syntax Injection Protection**: Configuration YAML parsing happens before environment variable expansion, ensuring environment variable payloads cannot inject or override configuration keys
@@ -206,7 +228,7 @@ See `src/db/schema.ts` for full schema definitions.
 ### Common Issues
 
 **"GitHub API returned 403"**
-- Verify your PAT has `read:org` scope
+- Verify your PAT has `manage_billing:copilot` + `read:org` (org) or `read:enterprise` (enterprise) scope
 - Check enterprise slug is correct
 - Ensure your account has billing admin access
 
