@@ -1,16 +1,16 @@
 # Contributing to BurnRate
 
-> Thank you for considering contributing to BurnRate! This document explains how to contribute code, report bugs, and suggest improvements.
+> This document covers how to contribute code, report bugs, and suggest improvements.
 
 ---
 
 ## Quick Links
 
-- [README.md](README.md) — Project overview and quick start
-- [HUMANIZE.md](HUMANIZE.md) — Plain language explanation
-- [docs/AI_AGENTS.md](docs/AI_AGENTS.md) — AI agent usage guide
-- [AGENTS.md](AGENTS.md) — Agent-specific rules and workflows
-- [DESIGN.md](DESIGN.md) — Visual design system
+- [README.md](README.md): Project overview and quick start
+- [HUMANIZE.md](HUMANIZE.md): Plain language explanation
+- [docs/AI_AGENTS.md](docs/AI_AGENTS.md): AI agent usage guide
+- [AGENTS.md](AGENTS.md): Agent-specific rules and workflows
+- [DESIGN.md](DESIGN.md): Visual design system
 
 ---
 
@@ -164,13 +164,13 @@ git commit -m "fix: handle empty pool_snapshots table gracefully"
 
 **Commit types:**
 
-- `feat:` — New feature
-- `fix:` — Bug fix
-- `docs:` — Documentation changes
-- `style:` — Code style changes (formatting, semicolons, etc.)
-- `refactor:` — Code refactoring (no behavior change)
-- `test:` — Test additions or changes
-- `chore:` — Maintenance tasks (dependencies, scripts, config)
+- `feat:` New feature
+- `fix:` Bug fix
+- `docs:` Documentation changes
+- `style:` Code style changes (formatting, semicolons, etc.)
+- `refactor:` Code refactoring (no behavior change)
+- `test:` Test additions or changes
+- `chore:` Maintenance tasks (dependencies, scripts, config)
 
 #### 7. Push and Open a Pull Request
 
@@ -283,4 +283,4 @@ We use [Semantic Versioning](https://semver.org/):
 
 ## Thank You
 
-Your contributions make BurnRate better for everyone. Whether it's a typo fix, a new feature, or a bug report, we appreciate your time and effort.
+Thanks for helping improve BurnRate.
