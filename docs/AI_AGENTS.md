@@ -231,7 +231,8 @@ await withRetry(fn, {
 |----------|---------|---------|
 | `DATABASE_URL` | Database connection | `postgresql://user:pass@localhost:5432/burnrate` or `:memory:` |
 | `GITHUB_TOKEN` | GitHub PAT | `ghp_xxx` |
-| `ENTERPRISE_SLUG` | Enterprise identifier | `my-company` |
+| `GITHUB_ENTERPRISE` | Enterprise identifier | `my-company` |
+| `GITHUB_ORG` | Organization identifier | `my-org` |
 | `SLACK_WEBHOOK_URL` | Slack notifications | `https://hooks.slack.com/...` |
 | `BUDGET_ISSUE_REPO` | GitHub Issue repo | `owner/repo` |
 | `DRY_RUN` | Skip writes/notifications | `true` or `false` |

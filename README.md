@@ -47,7 +47,8 @@ cp .env.sample .env
 # Edit .env with your credentials
 # DATABASE_URL=postgresql://...
 # GITHUB_TOKEN=ghp_...
-# ENTERPRISE_SLUG=your-enterprise
+# GITHUB_ENTERPRISE=your-enterprise
+# GITHUB_ORG=your-org
 
 # Run migrations
 npm run migrate
@@ -145,7 +146,8 @@ DATABASE_URL=postgresql://user:pass@localhost:5432/burnrate
 
 # GitHub API
 GITHUB_TOKEN=ghp_xxx  # Classic PAT with manage_billing:copilot + read:org (org) or read:enterprise (enterprise)
-ENTERPRISE_SLUG=my-company
+GITHUB_ENTERPRISE=my-company
+GITHUB_ORG=my-org
 
 # Notifications (Phase 3)
 SLACK_WEBHOOK_URL=https://hooks.slack.com/...

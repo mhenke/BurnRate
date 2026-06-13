@@ -85,7 +85,8 @@ Ensure your `.env` contains:
 ```bash
 DATABASE_URL=sqlite.db       # Will create local SQLite file
 GITHUB_TOKEN=ghp_your_pat    # A Personal Access Token with read:org scope
-ENTERPRISE_SLUG=your-company
+GITHUB_ENTERPRISE=your-company
+GITHUB_ORG=your-org
 ```
 
 ### Step 3: Run Database Migrations

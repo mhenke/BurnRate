@@ -144,7 +144,8 @@ $ npm install</code></pre>
                 <button class="code-copy" type="button" data-copy-button aria-live="polite">Copy</button>
                 <pre><code>DATABASE_URL=postgresql://user:pass@localhost:5432/burnrate
 GITHUB_TOKEN=ghp_xxx
-ENTERPRISE_SLUG=my-company</code></pre>
+GITHUB_ENTERPRISE=my-company
+GITHUB_ORG=my-org</code></pre>
               </div>
               <p class="card-tip">
                 Create a GitHub Personal Access Token (classic) with <code>read:org</code> permissions to fetch Copilot reports.
@@ -205,7 +206,8 @@ $ npm run forecast</code></pre>
                 <tbody>
                   <tr><td><code>DATABASE_URL</code></td><td>PostgreSQL or SQLite connection string</td></tr>
                   <tr><td><code>GITHUB_TOKEN</code></td><td>GitHub PAT with <code>read:org</code> scope</td></tr>
-                  <tr><td><code>ENTERPRISE_SLUG</code></td><td>Target enterprise name</td></tr>
+                  <tr><td><code>GITHUB_ENTERPRISE</code></td><td>Target enterprise slug</td></tr>
+                  <tr><td><code>GITHUB_ORG</code></td><td>Target organization slug</td></tr>
                   <tr><td><code>SLACK_WEBHOOK_URL</code></td><td>Optional budget alert destination</td></tr>
                 </tbody>
               </table>
