@@ -156,3 +156,34 @@ copyButtons.forEach((button) => {
 if (prefersReducedMotion) {
   document.documentElement.style.scrollBehavior = 'auto';
 }
+
+const commandSearch = document.getElementById('command-search');
+const commandsTable = document.getElementById('commands-table');
+
+if (commandSearch && commandsTable) {
+  const rows = [...commandsTable.querySelectorAll('tbody tr')];
+  commandSearch.addEventListener('input', (e) => {
+    const query = e.target.value.toLowerCase();
+    rows.forEach((row) => {
+      const text = row.textContent.toLowerCase();
+      row.style.display = text.includes(query) ? '' : 'none';
+    });
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === '/' && document.activeElement !== commandSearch) {
+      e.preventDefault();
+      commandSearch.focus();
+    }
+  });
+}
+
+// Global hotkey: press 'R' to run the terminal sample (unless typing in input)
+document.addEventListener('keydown', (e) => {
+  if (e.key.toLowerCase() === 'r' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+    if (demoRun && !demoRun.disabled) {
+      e.preventDefault();
+      demoRun.click();
+    }
+  }
+});

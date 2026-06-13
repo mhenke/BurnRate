@@ -59,7 +59,7 @@
           <div class="terminal panel" data-terminal>
             <div class="terminal-head">
               <span>Sample run</span>
-              <button class="terminal-action" type="button" data-demo-run>Run sample</button>
+              <button class="terminal-action" type="button" data-demo-run title="Press 'R' to run sample">Run sample</button>
             </div>
             <pre class="terminal-body"><code data-demo-output aria-live="polite" aria-atomic="true">$ @burnrate /forecast
 ✓ loaded 28 days of usage data
@@ -248,7 +248,10 @@ $ npm run forecast</code></pre>
           </div>
 
           <div class="panel prose-card">
-            <table class="table table-commands">
+            <div class="table-search-wrapper">
+              <input type="text" id="command-search" class="table-search-input" placeholder="Search commands (Press '/' to focus)..." aria-label="Search commands" />
+            </div>
+            <table class="table table-commands" id="commands-table">
               <thead>
                 <tr><th>CLI Command</th><th>Copilot Agent Skill</th><th>Description</th></tr>
               </thead>

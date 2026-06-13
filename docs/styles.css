@@ -733,3 +733,25 @@ section[id] {
   border-radius: 4px;
   font-family: monospace;
 }
+
+.table-search-wrapper {
+  margin-bottom: 1rem;
+  position: relative;
+}
+
+.table-search-input {
+  width: 100%;
+  padding: 0.65rem 1rem;
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-size: 0.875rem;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.table-search-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 8px rgba(96, 106, 222, 0.2);
+}
