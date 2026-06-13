@@ -1,0 +1,24 @@
+{
+  "name": "burnrate",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "check": "tsx src/index.ts check",
+    "etl": "tsx src/index.ts etl",
+    "forecast": "tsx src/index.ts forecast"
+  },
+  "dependencies": {
+    "octokit": "^4.0.0",
+    "pg": "^8.16.0",
+    "yaml": "^2.8.0",
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0",
+    "@types/pg": "^8.11.0",
+    "vitest": "^3.0.0"
+  }
+}
