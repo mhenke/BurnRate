@@ -1,0 +1,6 @@
+github:
+  enterprise: acme
+  org: acme-inc
+  token: ${GITHUB_TOKEN}
+postgres:
+  url: ${DATABASE_URL}
