@@ -1,4 +1,4 @@
-import { pgTable, text as pgText, date as pgDate, jsonb as pgJsonb, timestamp as pgTimestamp, numeric as pgNumeric, bigint as pgBigint, integer as pgInteger, bigserial as pgBigserial, unique as pgUnique } from 'drizzle-orm/pg-core';
+import { pgTable, text as pgText, date as pgDate, jsonb as pgJsonb, timestamp as pgTimestamp, numeric as pgNumeric, bigint as pgBigint, integer as pgInteger, bigserial as pgBigserial, unique as pgUnique, boolean as pgBoolean } from 'drizzle-orm/pg-core';
 import { sqliteTable, text as sqText, integer as sqInteger, numeric as sqNumeric, unique as sqUnique } from 'drizzle-orm/sqlite-core';
 
 // === PostgreSQL Schema ===
@@ -81,6 +81,39 @@ export const poolSnapshotsPg = pgTable('pool_snapshots', {
   pctElapsed: pgNumeric('pct_elapsed', { precision: 8, scale: 4 }),
 });
 
+export const budgetSnapshotsPg = pgTable('budget_snapshots', {
+  snapshotDate: pgDate('snapshot_date').primaryKey(),
+  totalBudget: pgNumeric('total_budget', { precision: 12, scale: 2 }).notNull(),
+  budgetUsed: pgNumeric('budget_used', { precision: 12, scale: 2 }).notNull(),
+  budgetRemaining: pgNumeric('budget_remaining', { precision: 12, scale: 2 }).notNull(),
+  pctUsed: pgNumeric('pct_used', { precision: 8, scale: 4 }),
+  pctElapsed: pgNumeric('pct_elapsed', { precision: 8, scale: 4 }),
+  forecast7d: pgNumeric('forecast_7d', { precision: 12, scale: 2 }),
+  forecast30d: pgNumeric('forecast_30d', { precision: 12, scale: 2 }),
+  pctOfBudget7d: pgNumeric('pct_of_budget_7d', { precision: 8, scale: 4 }),
+  pctOfBudget30d: pgNumeric('pct_of_budget_30d', { precision: 8, scale: 4 }),
+  alertLevel: pgText('alert_level'),
+  notified: pgBoolean('notified').notNull().default(false),
+  source: pgText('source'),
+  note: pgText('note'),
+  createdAt: pgTimestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: pgTimestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const notificationLogPg = pgTable('notification_log', {
+  id: pgBigserial('id', { mode: 'bigint' }).primaryKey(),
+  snapshotDate: pgDate('snapshot_date').notNull(),
+  channel: pgText('channel').notNull(),
+  notificationType: pgText('notification_type').notNull(),
+  externalId: pgText('external_id'),
+  payload: pgJsonb('payload'),
+  success: pgBoolean('success').notNull().default(true),
+  errorMessage: pgText('error_message'),
+  createdAt: pgTimestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  pgUnique('notification_log_unique').on(t.snapshotDate, t.channel, t.notificationType)
+]);
+
 // === SQLite Schema ===
 
 export const rawReportsSq = sqliteTable('raw_reports', {
@@ -160,3 +193,36 @@ export const poolSnapshotsSq = sqliteTable('pool_snapshots', {
   forecast30d: sqNumeric('forecast_30d'),
   pctElapsed: sqNumeric('pct_elapsed'),
 });
+
+export const budgetSnapshotsSq = sqliteTable('budget_snapshots', {
+  snapshotDate: sqText('snapshot_date').primaryKey(),
+  totalBudget: sqNumeric('total_budget').notNull(),
+  budgetUsed: sqNumeric('budget_used').notNull(),
+  budgetRemaining: sqNumeric('budget_remaining').notNull(),
+  pctUsed: sqNumeric('pct_used'),
+  pctElapsed: sqNumeric('pct_elapsed'),
+  forecast7d: sqNumeric('forecast_7d'),
+  forecast30d: sqNumeric('forecast_30d'),
+  pctOfBudget7d: sqNumeric('pct_of_budget_7d'),
+  pctOfBudget30d: sqNumeric('pct_of_budget_30d'),
+  alertLevel: sqText('alert_level'),
+  notified: sqInteger('notified').notNull().default(0),
+  source: sqText('source'),
+  note: sqText('note'),
+  createdAt: sqText('created_at').notNull().default('CURRENT_TIMESTAMP'),
+  updatedAt: sqText('updated_at').notNull().default('CURRENT_TIMESTAMP'),
+});
+
+export const notificationLogSq = sqliteTable('notification_log', {
+  id: sqInteger('id').primaryKey({ autoIncrement: true }),
+  snapshotDate: sqText('snapshot_date').notNull(),
+  channel: sqText('channel').notNull(),
+  notificationType: sqText('notification_type').notNull(),
+  externalId: sqText('external_id'),
+  payload: sqText('payload', { mode: 'json' }),
+  success: sqInteger('success').notNull().default(1),
+  errorMessage: sqText('error_message'),
+  createdAt: sqText('created_at').notNull().default('CURRENT_TIMESTAMP'),
+}, (t) => [
+  sqUnique('notification_log_unique').on(t.snapshotDate, t.channel, t.notificationType)
+]);

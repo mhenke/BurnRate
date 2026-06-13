@@ -69,6 +69,36 @@ export const pgSchemaStatements = [
     reason TEXT,
     PRIMARY KEY (effective_date, github_login)
   )`,
+  `CREATE TABLE IF NOT EXISTS budget_snapshots (
+    snapshot_date DATE PRIMARY KEY,
+    total_budget NUMERIC(12,2) NOT NULL,
+    budget_used NUMERIC(12,2) NOT NULL,
+    budget_remaining NUMERIC(12,2) NOT NULL,
+    pct_used NUMERIC(8,4),
+    pct_elapsed NUMERIC(8,4),
+    forecast_7d NUMERIC(12,2),
+    forecast_30d NUMERIC(12,2),
+    pct_of_budget_7d NUMERIC(8,4),
+    pct_of_budget_30d NUMERIC(8,4),
+    alert_level TEXT,
+    notified BOOLEAN NOT NULL DEFAULT false,
+    source TEXT,
+    note TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  )`,
+  `CREATE TABLE IF NOT EXISTS notification_log (
+    id BIGSERIAL PRIMARY KEY,
+    snapshot_date DATE NOT NULL,
+    channel TEXT NOT NULL,
+    notification_type TEXT NOT NULL,
+    external_id TEXT,
+    payload JSONB,
+    success BOOLEAN NOT NULL DEFAULT true,
+    error_message TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (snapshot_date, channel, notification_type)
+  )`,
 ];
 
 export const sqliteSchemaStatements = [
@@ -139,6 +169,36 @@ export const sqliteSchemaStatements = [
     value_tier TEXT,
     reason TEXT,
     PRIMARY KEY (effective_date, github_login)
+  )`,
+  `CREATE TABLE IF NOT EXISTS budget_snapshots (
+    snapshot_date TEXT PRIMARY KEY,
+    total_budget NUMERIC NOT NULL,
+    budget_used NUMERIC NOT NULL,
+    budget_remaining NUMERIC NOT NULL,
+    pct_used NUMERIC,
+    pct_elapsed NUMERIC,
+    forecast_7d NUMERIC,
+    forecast_30d NUMERIC,
+    pct_of_budget_7d NUMERIC,
+    pct_of_budget_30d NUMERIC,
+    alert_level TEXT,
+    notified INTEGER NOT NULL DEFAULT 0,
+    source TEXT,
+    note TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS notification_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snapshot_date TEXT NOT NULL,
+    channel TEXT NOT NULL,
+    notification_type TEXT NOT NULL,
+    external_id TEXT,
+    payload TEXT,
+    success INTEGER NOT NULL DEFAULT 1,
+    error_message TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (snapshot_date, channel, notification_type)
   )`,
 ];
 
