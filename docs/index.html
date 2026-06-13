@@ -42,7 +42,7 @@
             <p class="eyebrow">GitHub Copilot visibility</p>
             <h1>Know your Copilot burn before GitHub does.</h1>
             <p class="lede">
-              BurnRate ingests usage reports, stores raw JSON for audit history, and turns daily data into simple forecasts and budget alerts. Observe only. No budget writes.
+              BurnRate ingests usage reports, stores raw JSON for audit history, and turns daily data into simple forecasts, budget alerts, and interactive chat queries. Observe only. No budget writes.
             </p>
             <div class="button-row">
               <a class="button button-primary" href="#quick-start">Quick start</a>
@@ -52,7 +52,7 @@
             <ul class="hero-points" aria-label="Highlights">
               <li>Raw payloads stored before parsing</li>
               <li>PostgreSQL in production, SQLite locally</li>
-              <li>Budget alerts without GitHub writes</li>
+              <li>Interact via Copilot Agent Skills</li>
             </ul>
           </div>
 
@@ -61,7 +61,7 @@
               <span>Sample run</span>
               <button class="terminal-action" type="button" data-demo-run>Run sample</button>
             </div>
-            <pre class="terminal-body"><code data-demo-output aria-live="polite" aria-atomic="true">$ npm run forecast
+            <pre class="terminal-body"><code data-demo-output aria-live="polite" aria-atomic="true">$ @burnrate /forecast
 ✓ loaded 28 days of usage data
 ✓ raw reports preserved in raw_reports
 → projected month-end burn: 78%
@@ -69,6 +69,7 @@
           </div>
         </div>
       </section>
+
 
       <section class="section" id="features">
         <div class="container section-shell">
@@ -103,7 +104,18 @@
               <h3>Dual databases</h3>
               <p>PostgreSQL in production. SQLite for local development and tests.</p>
             </article>
+            <article class="panel feature-card feature-card-wide">
+              <div class="feature-card-copy">
+                <h3>Copilot Agent Skills</h3>
+                <p>Trigger forecasts, user classifications, and budget sync checks directly using natural language in your chat interface.</p>
+              </div>
+              <ul class="feature-notes" aria-label="Copilot Agent Skills features">
+                <li>On-demand chat commands</li>
+                <li>Seamless CLI script triggers</li>
+              </ul>
+            </article>
           </div>
+
         </div>
       </section>
 
@@ -216,26 +228,27 @@ $ npm run forecast</code></pre>
       <section class="section" id="commands">
         <div class="container section-shell">
           <div class="section-heading">
-            <p class="eyebrow">Commands</p>
-            <h2>The CLI surface stays small and explicit.</h2>
+            <p class="eyebrow">Commands & Skills</p>
+            <h2>The CLI and chat agent surfaces stay small and explicit.</h2>
           </div>
 
           <div class="panel prose-card">
             <table class="table table-commands">
               <thead>
-                <tr><th>Command</th><th>Description</th></tr>
+                <tr><th>CLI Command</th><th>Copilot Agent Skill</th><th>Description</th></tr>
               </thead>
               <tbody>
-                <tr><td><code>npm run ingest</code></td><td>Fetch and store today's Copilot reports</td></tr>
-                <tr><td><code>npm run forecast</code></td><td>Generate burn forecasts from stored data</td></tr>
-                <tr><td><code>npm run classify</code></td><td>Classify users by consumption/value tiers</td></tr>
-                <tr><td><code>npm run budget-sync</code></td><td>Sync budget limits and send alerts</td></tr>
-                <tr><td><code>npm test</code></td><td>Run the test suite</td></tr>
+                <tr><td><code>npm run ingest</code></td><td><code>@burnrate /etl</code></td><td>Fetch and store today's Copilot reports</td></tr>
+                <tr><td><code>npm run forecast</code></td><td><code>@burnrate /forecast</code></td><td>Generate burn forecasts from stored data</td></tr>
+                <tr><td><code>npm run classify</code></td><td><code>@burnrate /classify</code></td><td>Classify users by consumption/value tiers</td></tr>
+                <tr><td><code>npm run budget-sync</code></td><td><code>@burnrate /budget-sync</code></td><td>Sync budget limits and send alerts</td></tr>
+                <tr><td><code>npm test</code></td><td>—</td><td>Run the test suite</td></tr>
               </tbody>
             </table>
           </div>
         </div>
       </section>
+
     </main>
 
     <footer class="site-footer">

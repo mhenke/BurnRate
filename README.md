@@ -20,6 +20,8 @@ GitHub Copilot billing arrives at month-end. Sometimes the number surprises you.
 - Simple forecasts based on actual usage patterns
 - Budget alerts when approaching limits (Phase 3)
 - Zero writes to GitHub budget settings. This is monitoring, not enforcement
+- Interactive chat queries using Copilot Agent Skills
+
 
 ## Quick Start
 
@@ -64,6 +66,17 @@ npm run ingest
 | `npm run budget-sync` | Sync budget limits and send alerts |
 | `npm test` | Run test suite |
 | `npm run build` | Compile TypeScript |
+
+### Copilot Agent Skills
+
+BurnRate packages Copilot Agent Skills for chat interfaces (like Copilot Chat or Claude Code). Administrators can trigger CLI commands and inspect results using natural language:
+
+- **`@burnrate /forecast`**: Run on-demand monthly usage forecasts and view projected pool utilization.
+- **`@burnrate /classify`**: Run user tier classification on-demand (supports optional flags `--value-config` and `--report`).
+- **`@burnrate /budget-sync`**: Synchronize user-level budgets and check Slack/Issue alert statuses (supports optional flags `--dry-run` and `--json-logs`).
+- **`@burnrate /etl`**: Manually trigger daily usage ingestion and raw report storage.
+
+*Skills are located in the [skills/](file:///home/mhenke/Projects/BurnRate/skills) directory and declared in [plugin.json](file:///home/mhenke/Projects/BurnRate/plugin.json).*
 
 ## Architecture
 
@@ -184,6 +197,9 @@ See `src/db/schema.ts` for full schema definitions.
 - **Parameterized queries**: Drizzle ORM prevents SQL injection by default
 - **Token scoping**: GitHub PAT requires only `read:org` (no write permissions)
 - **Audit trail**: Raw payloads preserved for compliance and debugging
+- **SSRF Prevention**: `fetchSignedUrl` strictly validates that targets are HTTPS and limited to a whitelisted set of GitHub API and S3 CDN domains
+- **Config Syntax Injection Protection**: Configuration YAML parsing happens before environment variable expansion, ensuring environment variable payloads cannot inject or override configuration keys
+
 
 ## Troubleshooting
 
