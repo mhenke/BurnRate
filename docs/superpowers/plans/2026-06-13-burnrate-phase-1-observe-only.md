@@ -181,107 +181,56 @@ Create the schema definition module with all Phase 1 tables. Naming follows the 
 - Create: `src/db/schema.ts`
 - Create: `tests/db/schema.test.ts`
 
-- [~] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { strict as assert } from 'node:assert';
-import { schemaStatements } from '../../src/db/schema.js';
+import { describe, it } from 'vitest';
+import * as schema from '../../src/db/schema.js';
 
-assert.equal(schemaStatements.length, 7);
+describe('schema', () => {
+  it('defines the expected tables for both postgres and sqlite', () => {
+    assert.ok(schema.rawReportsPg, 'rawReportsPg should be defined');
+    assert.ok(schema.rawReportsSq, 'rawReportsSq should be defined');
+    assert.ok(schema.usersPg, 'usersPg should be defined');
+    assert.ok(schema.usersSq, 'usersSq should be defined');
+    assert.ok(schema.dailyUsagePg, 'dailyUsagePg should be defined');
+    assert.ok(schema.dailyUsageSq, 'dailyUsageSq should be defined');
+    assert.ok(schema.teamUsagePg, 'teamUsagePg should be defined');
+    assert.ok(schema.teamUsageSq, 'teamUsageSq should be defined');
+    assert.ok(schema.classificationHistoryPg, 'classificationHistoryPg should be defined');
+    assert.ok(schema.classificationHistorySq, 'classificationHistorySq should be defined');
+    assert.ok(schema.poolSnapshotsPg, 'poolSnapshotsPg should be defined');
+    assert.ok(schema.poolSnapshotsSq, 'poolSnapshotsSq should be defined');
+  });
+});
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
-Run: `npm test -- tests/db/schema.test.ts`
+Run: `npx vitest run tests/db/schema.test.ts`
 Expected: fail because schema module does not exist.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
-```ts
-export const schemaStatements = [
-  `CREATE TABLE IF NOT EXISTS raw_reports (
-    id BIGSERIAL PRIMARY KEY,
-    report_date DATE NOT NULL,
-    report_type TEXT NOT NULL,
-    source_url TEXT NOT NULL,
-    payload JSONB NOT NULL,
-    fetched_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (report_type, report_date)
-  )`,
-  `CREATE TABLE IF NOT EXISTS users (
-    login TEXT PRIMARY KEY,
-    enterprise TEXT NOT NULL,
-    org TEXT NOT NULL,
-    display_name TEXT,
-    email TEXT,
-    team TEXT,
-    manager TEXT,
-    employee_id TEXT,
-    seat_created_at TIMESTAMPTZ,
-    last_activity_at TIMESTAMPTZ,
-    consumption_tier TEXT,
-    value_tier TEXT,
-    bucket_updated_at TIMESTAMPTZ,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-  )`,
-  `CREATE TABLE IF NOT EXISTS daily_usage (
-    usage_date DATE NOT NULL,
-    github_login TEXT NOT NULL,
-    credits NUMERIC(10,2) NOT NULL DEFAULT 0,
-    tokens_input BIGINT NOT NULL DEFAULT 0,
-    tokens_output BIGINT NOT NULL DEFAULT 0,
-    chat_requests INTEGER NOT NULL DEFAULT 0,
-    agent_requests INTEGER NOT NULL DEFAULT 0,
-    accepted_lines INTEGER NOT NULL DEFAULT 0,
-    suggested_lines INTEGER NOT NULL DEFAULT 0,
-    acceptance_rate NUMERIC(5,4),
-    credits_per_acc_loc NUMERIC(10,4),
-    model_breakdown JSONB NOT NULL DEFAULT '{}'::jsonb,
-    ide_breakdown JSONB NOT NULL DEFAULT '{}'::jsonb,
-    language_breakdown JSONB NOT NULL DEFAULT '{}'::jsonb,
-    PRIMARY KEY (usage_date, github_login)
-  )`,
-  `CREATE TABLE IF NOT EXISTS team_usage (
-    usage_date DATE NOT NULL,
-    team TEXT NOT NULL,
-    credits NUMERIC(12,2) NOT NULL DEFAULT 0,
-    active_users INTEGER NOT NULL DEFAULT 0,
-    avg_acceptance_rate NUMERIC(5,4),
-    PRIMARY KEY (usage_date, team)
-  )`,
-  `CREATE TABLE IF NOT EXISTS classification_history (
-    effective_date DATE NOT NULL,
-    github_login TEXT NOT NULL,
-    consumption_from TEXT,
-    consumption_to TEXT,
-    value_tier TEXT,
-    reason TEXT,
-    PRIMARY KEY (effective_date, github_login)
-  )`,
-  `CREATE TABLE IF NOT EXISTS pool_snapshots (
-    snapshot_date DATE PRIMARY KEY,
-    total_credits NUMERIC(12,2) NOT NULL,
-    credits_used NUMERIC(12,2) NOT NULL,
-    credits_remaining NUMERIC(12,2) NOT NULL,
-    forecast_7d NUMERIC(12,2),
-    forecast_30d NUMERIC(12,2),
-    pct_elapsed NUMERIC(8,4)
-  )`,
-];
-```
+We define Drizzle tables for both PostgreSQL and SQLite in [src/db/schema.ts](file:///home/mhenke/Projects/BurnRate/src/db/schema.ts):
+- `rawReportsPg` & `rawReportsSq`
+- `usersPg` & `usersSq`
+- `dailyUsagePg` & `dailyUsageSq`
+- `teamUsagePg` & `teamUsageSq`
+- `classificationHistoryPg` & `classificationHistorySq`
+- `poolSnapshotsPg` & `poolSnapshotsSq`
 
-Tables count: 6 (raw_reports, users, daily_usage, team_usage, classification_history, pool_snapshots).
+- [x] **Step 4: Run test to verify it passes**
 
-- [ ] **Step 4: Run test to verify it passes**
-
-Run: `npm test -- tests/db/schema.test.ts`
+Run: `npx vitest run tests/db/schema.test.ts`
 Expected: pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit** `f1f35a6`
 
 ```bash
 git add src/db/schema.ts tests/db/schema.test.ts
-git commit -m "feat: define postgres schema aligned to reference"
+git commit -m "feat: define database schemas using Drizzle ORM"
 ```
 
 ---
