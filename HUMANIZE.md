@@ -19,10 +19,10 @@ GitHub doesn't show you a running tally. They show you the past (last month's bi
 
 BurnRate is like a **budget tracker for your Copilot usage**. It:
 
-1. **Checks your usage daily** — Connects to GitHub's API and downloads usage reports
-2. **Stores everything** — Saves the raw data so you always have a record
-3. **Makes predictions** — Calculates "at this rate, you'll use X credits by month-end"
-4. **Sends alerts** — Notifies you on Slack or creates a GitHub Issue when you're approaching limits
+1. **Checks your usage daily** - Connects to GitHub's API and downloads usage reports
+2. **Stores everything** - Saves the raw data so you always have a record
+3. **Makes predictions** - Calculates "at this rate, you'll use X credits by month-end"
+4. **Sends alerts** - Notifies you on Slack or creates a GitHub Issue when you're approaching limits
 
 **What it doesn't do:** Change your budget, enforce limits, or automate anything. It's a monitoring tool, not a control tool.
 
@@ -109,8 +109,8 @@ BurnRate fetches this daily and stores it. Over time, you build a history that G
 GitHub might change their API response format. If you only store parsed data, you lose history when the schema changes.
 
 BurnRate stores:
-1. **Raw JSON** — exactly what GitHub sent, forever
-2. **Parsed metrics** — the numbers we extracted
+1. **Raw JSON** - exactly what GitHub sent, forever
+2. **Parsed metrics** - the numbers we extracted
 
 If GitHub changes their API in 2027, you can re-parse the 2026 raw data with new logic. You never lose history.
 
@@ -204,11 +204,11 @@ Yes. BurnRate:
 BurnRate itself is free (open source, MIT license).
 
 Your costs:
-- **Database hosting** — ~$5-15/month for a small PostgreSQL instance (or free with SQLite)
-- **GitHub Actions** — Free for public repos, included in private repo minutes
-- **Your time** — ~30 minutes to set up, then zero maintenance
+- **Database hosting** - ~$5-15/month for a small PostgreSQL instance (or free with SQLite)
+- **GitHub Actions** - Free for public repos, included in private repo minutes
+- **Your time** - ~30 minutes to set up, then zero maintenance
 
-Compare to: The cost of one surprise overage bill ($1,000+ for large orgs).
+Compare to the cost of one surprise overage bill ($1,000+ for large orgs).
 
 ## Alternatives
 

@@ -1,6 +1,6 @@
 # BurnRate
 
-> **Know your Copilot burn before GitHub does.** BurnRate is an observe-only pipeline that ingests GitHub Copilot usage reports, stores raw payloads for audit history, and produces simple burn forecasts—without any budget writes or Copilot Skills automation.
+> **Know your Copilot burn before GitHub does.** BurnRate ingests GitHub Copilot usage reports, stores raw payloads for audit history, and produces burn forecasts. No budget writes. No Copilot Skills automation.
 
 [![Tests](https://github.com/mhenke/BurnRate/actions/workflows/ci.yml/badge.svg)](https://github.com/mhenke/BurnRate/actions)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -11,13 +11,13 @@
 
 ## What Problem Does This Solve?
 
-GitHub Copilot billing can surprise you at month-end. BurnRate gives you **visibility without intervention**:
+GitHub Copilot billing arrives at month-end. Sometimes the number surprises you. BurnRate gives you visibility without intervention:
 
-- **Daily ingestion** of Copilot usage reports from the GitHub API
-- **Raw payload storage** protects against schema drift—you always have the source of truth
-- **Simple forecasts** based on actual usage patterns, not guesses
-- **Budget alerts** when you're approaching limits (Phase 3)
-- **Zero writes** to GitHub budget settings—this is monitoring, not enforcement
+- Daily ingestion of Copilot usage reports from the GitHub API
+- Raw payload storage protects against schema drift
+- Simple forecasts based on actual usage patterns
+- Budget alerts when approaching limits (Phase 3)
+- Zero writes to GitHub budget settings. This is monitoring, not enforcement
 
 ## Quick Start
 
@@ -81,11 +81,11 @@ npm run ingest
 
 ### Key Design Decisions
 
-1. **Raw-first storage**: Raw JSON payloads are stored before any parsing. This protects historical data from schema changes.
+1. **Raw-first storage**: Raw JSON payloads are stored before parsing. This protects historical data from schema changes.
 
 2. **Dual database support**: PostgreSQL for production, SQLite for local development and testing. All queries use Drizzle ORM with `isSqlite` branching where needed.
 
-3. **Modular ETL**: API calls (`src/github/`), parsing (`src/etl/`), and database writes (`src/db/`) are strictly separated.
+3. **Modular ETL**: API calls in `src/github/`, parsing in `src/etl/`, database writes in `src/db/`. Strict separation.
 
 4. **Observe-only**: Phase 1-3 read from GitHub but never write budget limits or enforcement rules.
 
@@ -93,10 +93,10 @@ npm run ingest
 
 | Phase | Status | Description |
 |-------|--------|-------------|
-| **Phase 1** | ✅ Complete | Observe-only ETL pipeline with raw storage |
-| **Phase 2** | ✅ Complete | User classification by consumption/value tiers |
-| **Phase 3** | ✅ Complete | Budget sync + notification hub (Slack, GitHub Issues) |
-| **Phase 4** | 📋 Planned | ULB enforcement with GitHub Budgets API writes |
+| **Phase 1** | Complete | Observe-only ETL pipeline with raw storage |
+| **Phase 2** | Complete | User classification by consumption/value tiers |
+| **Phase 3** | Complete | Budget sync + notification hub (Slack, GitHub Issues) |
+| **Phase 4** | Planned | ULB enforcement with GitHub Budgets API writes |
 
 ## Configuration
 

@@ -1,13 +1,13 @@
 # BurnRate
 
-Observe-only GitHub Copilot budget monitoring. Daily ingestion, raw payload storage, burn forecasts, and budget alerts—without any enforcement or automation.
+Observe-only GitHub Copilot budget monitoring. Daily ingestion, raw payload storage, burn forecasts, and budget alerts, without enforcement or automation.
 
 ## GitHub Repository Description
 
 Use this description for the GitHub repository about section:
 
 ```
-Observe-only GitHub Copilot budget monitoring. Daily ingestion, raw payload storage, burn forecasts, and budget alerts—without enforcement or automation.
+Observe-only GitHub Copilot budget monitoring. Daily ingestion, raw payload storage, burn forecasts, and budget alerts, without enforcement or automation.
 ```
 
 **Alternative (shorter):**
@@ -35,9 +35,9 @@ Add these topics to the GitHub repository for discoverability:
 
 If you want to enable a GitHub Pages site for documentation:
 
-1. Go to **Settings** → **Pages**
+1. Go to **Settings** > **Pages**
 2. Source: **Deploy from a branch**
-3. Branch: **main** → **/docs** folder
+3. Branch: **main** > **/docs** folder
 4. Save
 
 This will publish documentation at `https://mhenke.github.io/BurnRate/`
@@ -121,7 +121,7 @@ Enable GitHub Discussions for:
 - Show and tell (how teams are using BurnRate)
 - Q&A
 
-Go to **Settings** → **General** → **Features** → **Discussions** → **Set up discussions**
+Go to **Settings** > **General** > **Features** > **Discussions** > **Set up discussions**
 
 ## GitHub Releases
 
@@ -152,16 +152,16 @@ Configure in **Settings** → **Secrets and variables** → **Actions**
 
 Recommended branch protection rules for `main`:
 
-- ✅ Require a pull request before merging
-- ✅ Require approvals (1)
-- ✅ Dismiss stale pull request approvals when new commits are pushed
-- ✅ Require status checks to pass before merging
+- Require a pull request before merging
+- Require approvals (1)
+- Dismiss stale pull request approvals when new commits are pushed
+- Require status checks to pass before merging
   - `npm test`
   - `npm run build`
-- ✅ Require branches to be up to date before merging
-- ✅ Include administrators
+- Require branches to be up to date before merging
+- Include administrators
 
-Configure in **Settings** → **Branches** → **Add branch protection rule**
+Configure in **Settings** > **Branches** > **Add branch protection rule**
 
 ## GitHub Security
 
