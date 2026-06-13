@@ -481,8 +481,8 @@ code {
 
 .pipeline li {
   display: grid;
-  grid-template-columns: 2rem minmax(0, 1fr);
-  gap: 0.8rem 1rem;
+  grid-template-columns: 2.5rem 1fr;
+  gap: 0.25rem 1rem;
   align-items: start;
   padding: 0.85rem 0;
   border-bottom: 1px solid rgba(35, 37, 42, 0.75);
@@ -507,11 +507,20 @@ code {
 .pipeline strong,
 .pipeline em {
   display: block;
+  grid-column: 2;
 }
 
 .pipeline strong {
   color: var(--ink);
   margin-bottom: 0.15rem;
+}
+
+.pipeline em {
+  color: var(--ink-subtle);
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  word-break: normal;
+  overflow-wrap: normal;
 }
 
 .table {
@@ -695,7 +704,7 @@ section[id] {
   }
 
   .pipeline li {
-    grid-template-columns: 1fr;
+    grid-template-columns: 2rem 1fr;
   }
 
   .pipeline span {
