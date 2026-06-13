@@ -342,7 +342,7 @@ git commit -m "feat: add github client with octokit and signed-url fetcher"
 - Create: `src/github/seats.ts`
 - Create: `tests/github/reports.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [~] **Step 1: Write the failing test**
 
 ```ts
 import { strict as assert } from 'node:assert';
