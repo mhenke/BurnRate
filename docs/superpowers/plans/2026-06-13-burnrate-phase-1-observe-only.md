@@ -639,7 +639,7 @@ fetch → store raw → parse → upsert
 - Create: `src/etl/pipeline.ts`
 - Create: `tests/etl/pipeline.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { strict as assert } from 'node:assert';
@@ -648,12 +648,12 @@ import { runObserveOnlyPipeline } from '../../src/etl/pipeline.js';
 assert.equal(typeof runObserveOnlyPipeline, 'function');
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm test -- tests/etl/pipeline.test.ts`
 Expected: fail.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```ts
 // src/etl/pipeline.ts
@@ -720,12 +720,12 @@ export async function runObserveOnlyPipeline(
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npm test -- tests/etl/pipeline.test.ts`
 Expected: pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit** `3a04c90`
 
 ```bash
 git add src/etl/pipeline.ts tests/etl/pipeline.test.ts
