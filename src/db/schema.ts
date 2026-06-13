@@ -2,6 +2,10 @@ import { pgTable, text as pgText, date as pgDate, jsonb as pgJsonb, timestamp as
 import { sqliteTable, text as sqText, integer as sqInteger, numeric as sqNumeric, unique as sqUnique } from 'drizzle-orm/sqlite-core';
 
 // === PostgreSQL Schema ===
+// NOTE: This project declares parallel PostgreSQL (*Pg) and SQLite (*Sq) schemas.
+// This is a deliberate design decision to allow dynamic runtime dialect switching 
+// (SQLite for local in-memory integration testing, PostgreSQL for production deployment) 
+// while utilizing Drizzle's dialect-specific types and optimization capabilities.
 
 export const rawReportsPg = pgTable('raw_reports', {
   id: pgBigserial('id', { mode: 'bigint' }).primaryKey(),

@@ -65,7 +65,7 @@ function computeAlertLevel(pctOfBudget7d: number | null, pctOfBudget30d: number 
 }
 
 async function getLatestPoolSnapshot(db: DbClient): Promise<PoolSnapshot | null> {
-  const isPg = db.constructor.name.toLowerCase().includes('postgres');
+  const isPg = typeof db.run !== 'function' && !db.constructor?.name?.toLowerCase().includes('sqlite');
   
   if (isPg) {
     const results = await db
@@ -93,7 +93,7 @@ async function getLatestPoolSnapshot(db: DbClient): Promise<PoolSnapshot | null>
 }
 
 async function getYesterdaySnapshot(db: DbClient, date: string): Promise<BudgetSnapshot | null> {
-  const isPg = db.constructor.name.toLowerCase().includes('postgres');
+  const isPg = typeof db.run !== 'function' && !db.constructor?.name?.toLowerCase().includes('sqlite');
   
   if (isPg) {
     const results = await db
@@ -138,7 +138,7 @@ async function upsertBudgetSnapshot(
     note: string | null;
   },
 ): Promise<void> {
-  const isPg = db.constructor.name.toLowerCase().includes('postgres');
+  const isPg = typeof db.run !== 'function' && !db.constructor?.name?.toLowerCase().includes('sqlite');
   
   if (isPg) {
     await db

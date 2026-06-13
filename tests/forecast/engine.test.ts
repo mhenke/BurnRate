@@ -26,4 +26,17 @@ describe('forecast engine', () => {
     assert.equal(result.forecast30d, 5000 + 185.7 * 15); // 7785.5
     assert.ok(result.pctOfPool7d > 50);
   });
+
+  it('handles zero or negative poolTotal without producing Infinity/NaN', () => {
+    const result = computeForecast({
+      dailyCredits: [100, 100, 100],
+      poolTotal: 0,
+      creditsUsedMtd: 500,
+      daysInMonth: 30,
+      daysElapsed: 15,
+    });
+
+    assert.equal(result.pctOfPool7d, 0);
+    assert.equal(result.pctOfPool30d, 0);
+  });
 });

@@ -1,8 +1,8 @@
 import { loadValueConfig, resolveValueTier as resolveValueTierFn } from './value_config.js';
 import { classifyUsers } from './engine.js';
 import type { DbClient } from '../db/client.js';
-import { sql } from 'drizzle-orm';
-import { usersPg, usersSq, classificationHistoryPg, classificationHistorySq } from '../db/schema.js';
+import { sql, gte } from 'drizzle-orm';
+import { usersPg, usersSq, classificationHistoryPg, classificationHistorySq, dailyUsagePg, dailyUsageSq } from '../db/schema.js';
 
 export type ClassifyOptions = {
   valueConfigPath: string;
@@ -35,69 +35,59 @@ export async function runClassify(
   const valueConfig = loadValueConfig(options.valueConfigPath);
   const resolveValueTier = (team: string | null) => resolveValueTierFn(team, valueConfig);
 
-  // Read phase: get 30 days of daily_usage aggregates
-  const usageQuery = isSqlite
-    ? `SELECT github_login, SUM(credits) as credits
-       FROM daily_usage
-       WHERE usage_date >= date('now', '-30 days')
-       GROUP BY github_login`
-    : `SELECT github_login, SUM(credits::numeric) as credits
-       FROM daily_usage
-       WHERE usage_date >= CURRENT_DATE - INTERVAL '30 days'
-       GROUP BY github_login`;
+  const dailyUsageTable = isSqlite ? dailyUsageSq : dailyUsagePg;
+  const usersTable = isSqlite ? usersSq : usersPg;
 
-  const usageRows = await (isSqlite
-    ? Promise.resolve(db.all(sql.raw(usageQuery)) as Array<{ github_login: string; credits: string }>)
-    : db.execute(sql.raw(usageQuery)).then((r: any) => r.rows as Array<{ github_login: string; credits: string }>));
+  // Calculate threshold date (30 days ago) in JS as YYYY-MM-DD
+  const thresholdDate = new Date();
+  thresholdDate.setDate(thresholdDate.getDate() - 30);
+  const dateString = thresholdDate.toISOString().slice(0, 10);
+
+  // Read phase: get 30 days of daily_usage aggregates using Drizzle
+  const usageRows = await db
+    .select({
+      github_login: dailyUsageTable.githubLogin,
+      credits: sql<number>`SUM(${dailyUsageTable.credits})`.mapWith(Number),
+    })
+    .from(dailyUsageTable)
+    .where(gte(dailyUsageTable.usageDate, dateString))
+    .groupBy(dailyUsageTable.githubLogin);
 
   if (usageRows.length === 0) {
     throw new Error('No daily_usage data found. Run `burnrate etl` first.');
   }
 
-  // Check for 30 distinct days
-  const distinctDaysQuery = isSqlite
-    ? `SELECT COUNT(DISTINCT usage_date) as days FROM daily_usage WHERE usage_date >= date('now', '-30 days')`
-    : `SELECT COUNT(DISTINCT usage_date) as days FROM daily_usage WHERE usage_date >= CURRENT_DATE - INTERVAL '30 days'`;
+  // Check for 30 distinct days using Drizzle
+  const daysResult = await db
+    .select({
+      days: sql<number>`COUNT(DISTINCT ${dailyUsageTable.usageDate})`.mapWith(Number),
+    })
+    .from(dailyUsageTable)
+    .where(gte(dailyUsageTable.usageDate, dateString));
 
-  const daysResult = await (isSqlite
-    ? Promise.resolve(db.all(sql.raw(distinctDaysQuery)) as Array<{ days: number }>)
-    : db.execute(sql.raw(distinctDaysQuery)).then((r: any) => r.rows as Array<{ days: number }>));
-
-  if (daysResult[0].days < 30) {
-    throw new Error(`Insufficient data: only ${daysResult[0].days} distinct days found, need 30.`);
+  const distinctDays = daysResult[0]?.days ?? 0;
+  if (distinctDays < 30) {
+    throw new Error(`Insufficient data: only ${distinctDays} distinct days found, need 30.`);
   }
 
-  // Read current users
-  const usersQuery = `SELECT github_login, team, consumption_tier, value_tier, bucket_updated_at FROM users`;
-  const usersRows = await (isSqlite
-    ? Promise.resolve(db.all(sql.raw(usersQuery)) as Array<{
-        github_login: string;
-        team: string | null;
-        consumption_tier: string | null;
-        value_tier: string | null;
-        bucket_updated_at: string | null;
-      }>)
-    : db.execute(sql.raw(usersQuery)).then((r: any) => r.rows as Array<{
-        github_login: string;
-        team: string | null;
-        consumption_tier: string | null;
-        value_tier: string | null;
-        bucket_updated_at: string | null;
-      }>));
+  // Read current users using Drizzle
+  const usersRows = await db
+    .select({
+      github_login: usersTable.githubLogin,
+      team: usersTable.team,
+      consumption_tier: usersTable.consumptionTier,
+      value_tier: usersTable.valueTier,
+      bucket_updated_at: usersTable.bucketUpdatedAt,
+    })
+    .from(usersTable);
 
   // Classify
-  const userCredits = usageRows.map((r: { github_login: string; credits: string }) => ({
+  const userCredits = usageRows.map((r: any) => ({
     githubLogin: r.github_login,
     totalCredits: Number(r.credits),
   }));
 
-  const currentUsers = usersRows.map((r: {
-    github_login: string;
-    team: string | null;
-    consumption_tier: string | null;
-    value_tier: string | null;
-    bucket_updated_at: string | null;
-  }) => ({
+  const currentUsers = usersRows.map((r: any) => ({
     githubLogin: r.github_login,
     team: r.team,
     consumptionTier: r.consumption_tier,
@@ -108,33 +98,36 @@ export async function runClassify(
   const effectiveDate = new Date().toISOString().slice(0, 10);
   const result = classifyUsers(userCredits, currentUsers, { resolveValueTier }, options.reason);
 
-  // Write phase: use transactions for PostgreSQL, batch for SQLite
+  // Write phase: use transaction for SQLite and PostgreSQL
   if (result.changes.length > 0) {
     const now = new Date().toISOString();
 
     if (isSqlite) {
-      // SQLite: batch updates (better-sqlite3 transactions require different setup)
-      for (const change of result.changes) {
-        await db.update(usersSq)
-          .set({
-            consumptionTier: change.consumptionTierNew,
-            valueTier: change.valueTierNew,
-            bucketUpdatedAt: now,
-            updatedAt: sql`CURRENT_TIMESTAMP`,
-          })
-          .where(sql`${usersSq.githubLogin} = ${change.githubLogin}`);
+      db.transaction((tx: any) => {
+        for (const change of result.changes) {
+          tx.update(usersSq)
+            .set({
+              consumptionTier: change.consumptionTierNew,
+              valueTier: change.valueTierNew,
+              bucketUpdatedAt: now,
+              updatedAt: sql`CURRENT_TIMESTAMP`,
+            })
+            .where(sql`${usersSq.githubLogin} = ${change.githubLogin}`)
+            .run();
 
-        await db.insert(classificationHistorySq)
-          .values({
-            effectiveDate,
-            githubLogin: change.githubLogin,
-            consumptionTierOld: change.consumptionTierOld,
-            consumptionTierNew: change.consumptionTierNew,
-            valueTier: change.valueTierNew,
-            reason: change.reason,
-          })
-          .onConflictDoNothing();
-      }
+          tx.insert(classificationHistorySq)
+            .values({
+              effectiveDate,
+              githubLogin: change.githubLogin,
+              consumptionTierOld: change.consumptionTierOld,
+              consumptionTierNew: change.consumptionTierNew,
+              valueTier: change.valueTierNew,
+              reason: change.reason,
+            })
+            .onConflictDoNothing()
+            .run();
+        }
+      });
     } else {
       await db.transaction(async (tx: any) => {
         for (const change of result.changes) {

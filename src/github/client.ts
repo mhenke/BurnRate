@@ -13,6 +13,7 @@ export function createGitHubClient(token: string, enterprise: string, org: strin
     auth: token,
     baseUrl: 'https://api.github.com',
     request: {
+      timeout: 15000,
       headers: {
         'X-GitHub-Api-Version': '2026-03-10',
       },
@@ -41,7 +42,7 @@ export function createGitHubClient(token: string, enterprise: string, org: strin
     }
 
     // Signed URLs expire — fetch and parse immediately
-    const response = await fetch(urlStr);
+    const response = await fetch(urlStr, { signal: AbortSignal.timeout(15000) });
     if (!response.ok) {
       throw new Error(`Signed URL fetch failed: ${response.status} ${response.statusText}`);
     }

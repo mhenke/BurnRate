@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { describe, it, vi } from 'vitest';
-import { sendSlackNotification, sendGitHubIssue } from '../../src/budget/notifications.js';
+import { sendSlackNotification, sendGitHubIssue, sanitizeErrorMessage } from '../../src/budget/notifications.js';
 import type { BudgetReport } from '../../src/github/budget.js';
 
 const mockReport: BudgetReport = {
@@ -293,5 +293,27 @@ describe('sendGitHubIssue', () => {
     assert.equal(result.errorMessage, 'Network error');
 
     vi.unstubAllGlobals();
+  });
+});
+
+describe('sanitizeErrorMessage', () => {
+  it('redacts classic GitHub personal access tokens', () => {
+    const errorMsg = 'Failed to connect: ghp_1234567890abcdef1234567890abcdef1234';
+    const sanitized = sanitizeErrorMessage(errorMsg);
+    assert.equal(sanitized, 'Failed to connect: [REDACTED]');
+  });
+
+  it('redacts fine-grained GitHub personal access tokens', () => {
+    const fakePat = 'github_pat_' + 'a'.repeat(82);
+    const errorMsg = `Error using token: ${fakePat}`;
+    const sanitized = sanitizeErrorMessage(errorMsg);
+    assert.equal(sanitized, 'Error using token: [REDACTED]');
+  });
+
+  it('truncates very long error messages', () => {
+    const longMsg = 'a'.repeat(600);
+    const sanitized = sanitizeErrorMessage(longMsg);
+    assert.equal(sanitized.length, 515); // 500 chars + 15 chars for '... (truncated)'
+    assert.ok(sanitized.endsWith('... (truncated)'));
   });
 });

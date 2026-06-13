@@ -22,6 +22,20 @@ function average(arr: number[]): number {
   return Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 100) / 100;
 }
 
+/**
+ * Compute budget burn forecast using moving averages.
+ * Calculates both 7-day and 30-day run rates.
+ * Calculates MTD (month-to-date) usage, remaining days in the month, and project total usage.
+ * Compares projected usage against the total credit pool to detect threshold breaches.
+ * 
+ * Alert levels:
+ * - >= 110% of pool: critical
+ * - >= 100% and < 110% of pool: escalation
+ * - >= 90% and < 100% of pool: warning
+ * - < 90% of pool: ok
+ * 
+ * @param input The inputs including daily credits list, pool total, days elapsed, days in month, and credits used MTD.
+ */
 export function computeForecast(input: ForecastInput): ForecastResult {
   const remainingDays = input.daysInMonth - input.daysElapsed;
   const last7 = input.dailyCredits.slice(-7);
@@ -33,8 +47,8 @@ export function computeForecast(input: ForecastInput): ForecastResult {
   const forecast7d = Math.round((input.creditsUsedMtd + rate7d * remainingDays) * 100) / 100;
   const forecast30d = Math.round((input.creditsUsedMtd + rate30d * remainingDays) * 100) / 100;
 
-  const pctOfPool7d = (forecast7d / input.poolTotal) * 100;
-  const pctOfPool30d = (forecast30d / input.poolTotal) * 100;
+  const pctOfPool7d = input.poolTotal > 0 ? (forecast7d / input.poolTotal) * 100 : 0;
+  const pctOfPool30d = input.poolTotal > 0 ? (forecast30d / input.poolTotal) * 100 : 0;
 
   const divergencePct =
     rate7d > 0 && rate30d > 0

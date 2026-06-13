@@ -40,6 +40,16 @@ export type ClassifyResult = {
   };
 };
 
+/**
+ * Map credit consumption percentile to a consumption tier.
+ * Percentile thresholds:
+ * - >= 85%: extreme
+ * - >= 60% and < 85%: high
+ * - >= 25% and < 60%: medium
+ * - < 25%: low
+ * 
+ * @param percentile The calculated percentile (value between 0 and 1)
+ */
 function assignConsumptionTier(percentile: number): ConsumptionTier {
   if (percentile >= 0.85) return 'extreme';
   if (percentile >= 0.60) return 'high';
@@ -47,6 +57,18 @@ function assignConsumptionTier(percentile: number): ConsumptionTier {
   return 'low';
 }
 
+/**
+ * Classify users based on their credit usage relative to the organization.
+ * Calculates credit consumption percentiles and maps them to consumption tiers.
+ * Maps team assignments to business value tiers based on the config.
+ * 
+ * If total users < 4, falls back to assigning all users to the 'medium' consumption tier.
+ * 
+ * @param userCredits List of user GitHub logins and total credits used over 30 days
+ * @param currentUsers Current users database records
+ * @param config Team resolving config mapping teams to business value tiers
+ * @param reason Reason for running the classification (e.g., weekly_recalc, manual)
+ */
 export function classifyUsers(
   userCredits: UserCredits[],
   currentUsers: CurrentUser[],

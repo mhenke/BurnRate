@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import { fileURLToPath } from 'node:url';
 
 export const pgSchemaStatements = [
   `CREATE TABLE IF NOT EXISTS raw_reports (
@@ -212,5 +213,24 @@ export async function runMigrations(db: any): Promise<void> {
     } else {
       await db.execute(sql.raw(stmt));
     }
+  }
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    console.error('Error: DATABASE_URL environment variable is required.');
+    process.exit(1);
+  }
+  const { initDb, closeDb } = await import('./client.js');
+  const db = initDb(url);
+  try {
+    await runMigrations(db);
+    console.log('Migrations completed successfully.');
+  } catch (err) {
+    console.error('Migrations failed:', err);
+    process.exit(1);
+  } finally {
+    await closeDb();
   }
 }

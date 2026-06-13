@@ -8,7 +8,8 @@ import { runObserveOnlyPipeline } from './etl/pipeline.js';
 import { computeForecast } from './forecast/engine.js';
 import { runClassify } from './classify/runner.js';
 import { runBudgetSync } from './budget/budget_sync.js';
-import { sql } from 'drizzle-orm';
+import { sql, gte, desc } from 'drizzle-orm';
+import { dailyUsagePg, dailyUsageSq, poolSnapshotsPg, poolSnapshotsSq } from './db/schema.js';
 
 config();
 
@@ -76,15 +77,6 @@ function parseClassifyArgs(argv: string[]): { valueConfigPath: string; report: b
   return { valueConfigPath, report };
 }
 
-async function runQuery<T>(db: any, querySql: string): Promise<T[]> {
-  const isSqlite = typeof db.run === 'function';
-  if (isSqlite) {
-    return db.all(sql.raw(querySql)) as T[];
-  } else {
-    const res = await db.execute(sql.raw(querySql));
-    return res.rows as T[];
-  }
-}
 
 export async function main(argv: string[]): Promise<void> {
   const command = argv[2] ?? 'check';
@@ -127,30 +119,31 @@ export async function main(argv: string[]): Promise<void> {
     const db = initDb(cfg.postgres.url);
     const isSqlite = typeof db.run === 'function';
 
-    const query = isSqlite
-      ? `SELECT usage_date, SUM(credits) as credits
-         FROM daily_usage
-         WHERE usage_date >= date('now', '-30 days')
-         GROUP BY usage_date
-         ORDER BY usage_date`
-      : `SELECT usage_date, SUM(credits) as credits
-         FROM daily_usage
-         WHERE usage_date >= CURRENT_DATE - INTERVAL '30 days'
-         GROUP BY usage_date
-         ORDER BY usage_date`;
+    const thresholdDate = new Date();
+    thresholdDate.setDate(thresholdDate.getDate() - 30);
+    const dateString = thresholdDate.toISOString().slice(0, 10);
 
-    const rows = await runQuery<{ usage_date: string; credits: any }>(db, query);
+    const dailyUsageTable = isSqlite ? dailyUsageSq : dailyUsagePg;
+    const rows = await db
+      .select({
+        usage_date: dailyUsageTable.usageDate,
+        credits: sql<number>`SUM(${dailyUsageTable.credits})`.mapWith(Number),
+      })
+      .from(dailyUsageTable)
+      .where(gte(dailyUsageTable.usageDate, dateString))
+      .groupBy(dailyUsageTable.usageDate)
+      .orderBy(dailyUsageTable.usageDate);
 
     const now = new Date();
     const firstOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-    const dailyCredits = rows.map((r) => Number(r.credits));
+    const dailyCredits = rows.map((r: any) => Number(r.credits));
     const creditsUsedMtd = rows
-      .filter(r => r.usage_date >= firstOfMonth)
-      .reduce((sum, r) => sum + Number(r.credits), 0);
+      .filter((r: any) => r.usage_date >= firstOfMonth)
+      .reduce((sum: number, r: any) => sum + Number(r.credits), 0);
 
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     let daysElapsed = now.getDate();
-    const mtdRows = rows.filter(r => r.usage_date >= firstOfMonth);
+    const mtdRows = rows.filter((r: any) => r.usage_date >= firstOfMonth);
     if (mtdRows.length > 0) {
       const latestMtdRow = mtdRows[mtdRows.length - 1];
       const parts = latestMtdRow.usage_date.split('-');
@@ -159,11 +152,14 @@ export async function main(argv: string[]): Promise<void> {
       }
     }
 
-
-    const poolRows = await runQuery<{ total_credits: any }>(
-      db,
-      `SELECT total_credits FROM pool_snapshots ORDER BY snapshot_date DESC LIMIT 1`
-    );
+    const poolSnapshotsTable = isSqlite ? poolSnapshotsSq : poolSnapshotsPg;
+    const poolRows = await db
+      .select({
+        total_credits: poolSnapshotsTable.totalCredits,
+      })
+      .from(poolSnapshotsTable)
+      .orderBy(desc(poolSnapshotsTable.snapshotDate))
+      .limit(1);
     const poolTotal = poolRows.length > 0 ? Number(poolRows[0].total_credits) : 0;
 
     const forecast = computeForecast({

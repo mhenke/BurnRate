@@ -8,8 +8,10 @@ import { notificationLogPg, notificationLogSq } from '../db/schema.js';
 export function sanitizeErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   
-  // Strip GitHub PAT patterns (ghp_, gho_, ghu_, ghs_, ghr_)
-  const sanitized = message.replace(/gh[pousr]_[a-zA-Z0-9]{36,}/g, '[REDACTED]');
+  // Strip GitHub PAT patterns (classic ghp_ etc and fine-grained github_pat_)
+  const sanitized = message
+    .replace(/gh[pousr]_[a-zA-Z0-9]{36,}/g, '[REDACTED]')
+    .replace(/github_pat_[a-zA-Z0-9_]{82}/g, '[REDACTED]');
   
   // Truncate very long error bodies (likely API response bodies)
   if (sanitized.length > 500) {
@@ -71,6 +73,7 @@ export async function sendSlackNotification(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(15000),
     });
 
     if (!response.ok) {
@@ -152,6 +155,7 @@ export async function sendGitHubIssue(
         'Accept': 'application/vnd.github+json',
       },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(15000),
     });
 
     if (!response.ok) {
@@ -209,7 +213,7 @@ async function logNotification(
     errorMessage?: string;
   },
 ): Promise<void> {
-  const isPg = db.constructor.name.toLowerCase().includes('postgres');
+  const isPg = typeof db.run !== 'function' && !db.constructor?.name?.toLowerCase().includes('sqlite');
 
   if (isPg) {
     await db.insert(notificationLogPg).values({
