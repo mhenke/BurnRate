@@ -1,0 +1,22 @@
+name: daily-budget-check
+on:
+  schedule:
+    - cron: '0 9 * * *'
+  workflow_dispatch: {}
+jobs:
+  budget-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npm run budget-sync
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_PAT }}
+          BURNRATE_CONFIG: config/burnrate.yml
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          BUDGET_ISSUE_REPO: ${{ github.repository }}
+          DRY_RUN: ${{ vars.DRY_RUN || 'false' }}

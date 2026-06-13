@@ -4,6 +4,8 @@ import { main } from '../src/index.js';
 import * as configModule from '../src/config.js';
 import * as githubModule from '../src/github/client.js';
 import * as pipelineModule from '../src/etl/pipeline.js';
+import * as classifyModule from '../src/classify/runner.js';
+import * as budgetModule from '../src/budget/budget_sync.js';
 import * as dbClientModule from '../src/db/client.js';
 const { initDb, closeDb } = dbClientModule;
 import { runMigrations } from '../src/db/migrate.js';
@@ -82,5 +84,50 @@ describe('CLI entrypoint', () => {
     initDbSpy.mockRestore();
     loadConfigSpy.mockRestore();
     logSpy.mockRestore();
+  });
+
+  it('routes the classify command with flags', async () => {
+    const loadConfigSpy = vi.spyOn(configModule, 'loadConfig').mockReturnValue({
+      github: { enterprise: 'acme', org: 'acme-inc', token: 'fake' },
+      postgres: { url: ':memory:' }
+    });
+    const classifySpy = vi.spyOn(classifyModule, 'runClassify').mockResolvedValue({
+      totalUsers: 1,
+      changedUsers: 0,
+      missingTeamCount: 0,
+      tierCounts: { low: 0, medium: 1, high: 0, extreme: 0 },
+    });
+
+    await main(['node', 'src/index.ts', 'classify', '--value-config', 'config/value_config.sample.yml', '--report']);
+
+    assert.equal(classifySpy.mock.calls[0]?.[1].valueConfigPath, 'config/value_config.sample.yml');
+    assert.equal(classifySpy.mock.calls[0]?.[1].showReport, true);
+    classifySpy.mockRestore();
+    loadConfigSpy.mockRestore();
+  });
+
+  it('routes the budget-sync command with flags', async () => {
+    const loadConfigSpy = vi.spyOn(configModule, 'loadConfig').mockReturnValue({
+      github: { enterprise: 'acme', org: 'acme-inc', token: 'fake' },
+      postgres: { url: ':memory:' }
+    });
+    const budgetSyncSpy = vi.spyOn(budgetModule, 'runBudgetSync').mockResolvedValue({
+      snapshotDate: '2026-06-13',
+      totalBudget: 10000,
+      budgetUsed: 5000,
+      pctUsed: 50,
+      pctOfBudget7d: 55,
+      pctOfBudget30d: 52,
+      alertLevel: 'ok',
+      slackNotified: false,
+      issueNotified: false,
+      errors: [],
+    });
+
+    await main(['node', 'src/index.ts', 'budget-sync', '--dry-run', '--json-logs']);
+
+    assert.equal(budgetSyncSpy.mock.calls[0]?.[0].dryRun, true);
+    budgetSyncSpy.mockRestore();
+    loadConfigSpy.mockRestore();
   });
 });

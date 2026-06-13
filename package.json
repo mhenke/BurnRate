@@ -7,7 +7,9 @@
     "test": "vitest run",
     "check": "tsx src/index.ts check",
     "etl": "tsx src/index.ts etl",
-    "forecast": "tsx src/index.ts forecast"
+    "forecast": "tsx src/index.ts forecast",
+    "classify": "tsx src/index.ts classify",
+    "budget-sync": "tsx src/index.ts budget-sync"
   },
   "dependencies": {
     "better-sqlite3": "^12.10.0",
