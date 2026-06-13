@@ -88,21 +88,25 @@ BurnRate tracks:
 
 ### Where Does the Data Come From?
 
-GitHub provides an API endpoint: `GET /enterprises/{enterprise}/copilot/billing`
+GitHub provides API endpoints for AI credit usage, such as:
+`GET /organizations/{org}/settings/billing/ai_credit/usage`
 
-This returns:
+This returns usage items:
 ```json
 {
-  "total_budget": 1000000,
-  "budget_used": 670000,
-  "budget_remaining": 330000,
-  "spending_limit": 1000000,
-  "total_seats": 150,
-  "total_active_seats": 127
+  "timePeriod": { "year": 2026, "month": 6 },
+  "organization": "acme-inc",
+  "usageItems": [
+    {
+      "product": "Copilot",
+      "sku": "Copilot AI Credits",
+      "netAmount": 670000
+    }
+  ]
 }
 ```
 
-BurnRate fetches this daily and stores it. Over time, you build a history that GitHub doesn't provide.
+BurnRate fetches this daily and sums the Copilot AI credit usage. Over time, you build a history that GitHub doesn't provide.
 
 ### Why Store Raw Payloads?
 

@@ -177,8 +177,8 @@ headers: {
 **Use Octokit request interface:**
 
 ```typescript
-const response = await octokit.request('GET /enterprises/{enterprise}/copilot/billing', {
-  enterprise,
+const response = await octokit.request('GET /organizations/{org}/settings/billing/ai_credit/usage', {
+  org,
 });
 ```
 

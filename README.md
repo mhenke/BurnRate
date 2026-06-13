@@ -257,7 +257,7 @@ MIT — see [LICENSE](LICENSE) for details.
 Built with:
 - [Drizzle ORM](https://orm.drizzle.team/) — Type-safe SQL
 - [Vitest](https://vitest.dev/) — Fast unit testing
-- [Octokit](https://octokit.github.io/) — GitHub API client
+- [Octokit](https://github.com/octokit/octokit.js) — GitHub API client
 - [GitHub Actions](https://github.com/features/actions) — CI/CD
 
 ---
