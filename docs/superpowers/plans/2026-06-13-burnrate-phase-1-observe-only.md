@@ -742,7 +742,7 @@ Real monthly projection using dual 7-day and 30-day moving averages. Compares ag
 - Create: `src/forecast/engine.ts`
 - Create: `tests/forecast/engine.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { strict as assert } from 'node:assert';
@@ -764,12 +764,12 @@ assert.equal(result.forecast30d, 5000 + 185.7 * 15);
 assert.ok(result.pctOfPool7d > 50);
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm test -- tests/forecast/engine.test.ts`
 Expected: fail.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```ts
 // src/forecast/engine.ts
@@ -835,12 +835,12 @@ export function computeForecast(input: ForecastInput): ForecastResult {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npm test -- tests/forecast/engine.test.ts`
 Expected: pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit** `d22a62a`
 
 ```bash
 git add src/forecast/engine.ts tests/forecast/engine.test.ts
