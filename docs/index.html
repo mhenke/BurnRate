@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="BurnRate ingests GitHub Copilot usage reports, stores raw payloads for audit history, and produces burn forecasts." />
+    <meta name="theme-color" content="#010102" />
+    <title>BurnRate — Know your Copilot burn before GitHub does</title>
+    <link rel="preconnect" href="https://github.com" />
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./main.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header" data-header>
+      <div class="container header-inner">
+        <a class="brand" href="#top" aria-label="BurnRate home">
+          <span class="brand-mark" aria-hidden="true">B</span>
+          <span class="brand-text">BurnRate</span>
+        </a>
+
+        <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">
+          Menu
+        </button>
+
+        <nav class="site-nav" id="site-nav" aria-label="Primary">
+          <a href="#features">Features</a>
+          <a href="#quick-start">Quick start</a>
+          <a href="#architecture">Architecture</a>
+          <a href="#configuration">Configuration</a>
+          <a href="#commands">Commands</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="section hero" id="top">
+        <div class="container hero-grid">
+          <div class="hero-copy">
+            <p class="eyebrow">GitHub Copilot visibility</p>
+            <h1>Know your Copilot burn before GitHub does.</h1>
+            <p class="lede">
+              BurnRate ingests usage reports, stores raw JSON for audit history, and turns daily data into simple forecasts and budget alerts. Observe only. No budget writes.
+            </p>
+            <div class="button-row">
+              <a class="button button-primary" href="#quick-start">Quick start</a>
+              <a class="button button-secondary" href="https://github.com/mhenke/BurnRate" rel="noreferrer">View on GitHub</a>
+            </div>
+
+            <ul class="hero-points" aria-label="Highlights">
+              <li>Raw payloads stored before parsing</li>
+              <li>PostgreSQL in production, SQLite locally</li>
+              <li>Budget alerts without GitHub writes</li>
+            </ul>
+          </div>
+
+          <div class="terminal panel" data-terminal>
+            <div class="terminal-head">
+              <span>Sample run</span>
+              <button class="terminal-action" type="button" data-demo-run>Run sample</button>
+            </div>
+            <pre class="terminal-body"><code data-demo-output>$ npm run forecast
+✓ loaded 28 days of usage data
+✓ raw reports preserved in raw_reports
+→ projected month-end burn: 78%
+→ risk: within budget</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="features">
+        <div class="container section-shell">
+          <div class="section-heading">
+            <p class="eyebrow">What it does</p>
+            <h2>Built for engineers watching Copilot spend.</h2>
+            <p>
+              The interface stays dense and direct. It shows the reports, the forecast, and the audit trail without turning the page into a marketing template.
+            </p>
+          </div>
+
+          <div class="feature-grid">
+            <article class="panel feature-card">
+              <h3>Raw-first storage</h3>
+              <p>Stores the source payload before parsing so schema changes do not erase history.</p>
+            </article>
+            <article class="panel feature-card">
+              <h3>Forecasts</h3>
+              <p>Summarizes Copilot usage patterns into simple burn projections and month-end risk.</p>
+            </article>
+            <article class="panel feature-card">
+              <h3>Budget alerts</h3>
+              <p>Tracks thresholds and notifications without mutating GitHub budget settings.</p>
+            </article>
+            <article class="panel feature-card">
+              <h3>Dual databases</h3>
+              <p>PostgreSQL in production. SQLite for local development and tests.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="quick-start">
+        <div class="container section-shell">
+          <div class="section-heading">
+            <p class="eyebrow">Quick start</p>
+            <h2>Install, configure, ingest.</h2>
+            <p>Everything below comes straight from the repository workflow and uses the same commands the CLI expects.</p>
+          </div>
+
+          <div class="content-grid">
+            <article class="panel prose-card">
+              <h3>Install</h3>
+              <div class="code-block">
+                <button class="code-copy" type="button" data-copy-button>Copy</button>
+                <pre><code>$ git clone https://github.com/mhenke/BurnRate.git
+$ cd BurnRate
+$ npm install</code></pre>
+              </div>
+            </article>
+
+            <article class="panel prose-card">
+              <h3>Configure</h3>
+              <div class="code-block">
+                <button class="code-copy" type="button" data-copy-button>Copy</button>
+                <pre><code>DATABASE_URL=postgresql://user:pass@localhost:5432/burnrate
+GITHUB_TOKEN=ghp_xxx
+ENTERPRISE_SLUG=my-company</code></pre>
+              </div>
+            </article>
+
+            <article class="panel prose-card">
+              <h3>Run</h3>
+              <div class="code-block">
+                <button class="code-copy" type="button" data-copy-button>Copy</button>
+                <pre><code>$ npm run migrate
+$ npm run ingest
+$ npm run forecast</code></pre>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="architecture">
+        <div class="container section-shell">
+          <div class="section-heading">
+            <p class="eyebrow">Architecture</p>
+            <h2>Traceable from GitHub API to forecast.</h2>
+            <p>The pipeline keeps raw history first, then parsing and aggregation follow in separate steps.</p>
+          </div>
+
+          <div class="panel architecture-panel">
+            <ol class="pipeline" aria-label="BurnRate data flow">
+              <li><span>1</span><strong>GitHub API</strong><em>Daily Copilot usage reports</em></li>
+              <li><span>2</span><strong>ETL</strong><em>Raw storage, parsing, normalization</em></li>
+              <li><span>3</span><strong>Database</strong><em>PostgreSQL or SQLite tables</em></li>
+              <li><span>4</span><strong>Forecast</strong><em>Usage trend and month-end burn</em></li>
+              <li><span>5</span><strong>Alerts</strong><em>Budget threshold notifications</em></li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="configuration">
+        <div class="container section-shell">
+          <div class="section-heading">
+            <p class="eyebrow">Configuration</p>
+            <h2>Minimal surface area, explicit inputs.</h2>
+            <p>The site stays close to the real runtime configuration so the docs and the code agree.</p>
+          </div>
+
+          <div class="content-grid content-grid-wide">
+            <article class="panel prose-card">
+              <h3>Environment variables</h3>
+              <table class="table">
+                <thead>
+                  <tr><th>Key</th><th>Purpose</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td><code>DATABASE_URL</code></td><td>PostgreSQL or SQLite connection string</td></tr>
+                  <tr><td><code>GITHUB_TOKEN</code></td><td>GitHub PAT with <code>read:org</code> scope</td></tr>
+                  <tr><td><code>ENTERPRISE_SLUG</code></td><td>Target enterprise name</td></tr>
+                  <tr><td><code>SLACK_WEBHOOK_URL</code></td><td>Optional budget alert destination</td></tr>
+                </tbody>
+              </table>
+            </article>
+
+            <article class="panel prose-card">
+              <h3>Value tiers</h3>
+              <div class="code-block">
+                <button class="code-copy" type="button" data-copy-button>Copy</button>
+                <pre><code>teams:
+  - name: Platform Engineering
+    value_tier: extreme
+  - name: Data Science
+    value_tier: high
+  - name: Internal Tools
+    value_tier: medium</code></pre>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="commands">
+        <div class="container section-shell">
+          <div class="section-heading">
+            <p class="eyebrow">Commands</p>
+            <h2>The CLI surface stays small and explicit.</h2>
+          </div>
+
+          <div class="panel prose-card">
+            <table class="table table-commands">
+              <thead>
+                <tr><th>Command</th><th>Description</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>npm run ingest</code></td><td>Fetch and store today's Copilot reports</td></tr>
+                <tr><td><code>npm run forecast</code></td><td>Generate burn forecasts from stored data</td></tr>
+                <tr><td><code>npm run classify</code></td><td>Classify users by consumption/value tiers</td></tr>
+                <tr><td><code>npm run budget-sync</code></td><td>Sync budget limits and send alerts</td></tr>
+                <tr><td><code>npm test</code></td><td>Run the test suite</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <div>
+          <strong>BurnRate</strong>
+          <p>Observe-only Copilot spend visibility for engineering leaders.</p>
+        </div>
+        <div class="footer-links">
+          <a href="https://github.com/mhenke/BurnRate" rel="noreferrer">GitHub</a>
+          <a href="https://github.com/mhenke/BurnRate/blob/main/README.md" rel="noreferrer">README</a>
+          <a href="https://github.com/mhenke/BurnRate/actions" rel="noreferrer">Actions</a>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

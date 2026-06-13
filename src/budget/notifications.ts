@@ -1,6 +1,24 @@
 import type { BudgetReport } from '../github/budget.js';
 import { notificationLogPg, notificationLogSq } from '../db/schema.js';
 
+/**
+ * Sanitize error messages before persisting to database.
+ * Removes potential secrets like GitHub tokens (ghp_), truncates long bodies.
+ */
+export function sanitizeErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  
+  // Strip GitHub PAT patterns (ghp_, gho_, ghu_, ghs_, ghr_)
+  const sanitized = message.replace(/gh[pousr]_[a-zA-Z0-9]{36,}/g, '[REDACTED]');
+  
+  // Truncate very long error bodies (likely API response bodies)
+  if (sanitized.length > 500) {
+    return sanitized.slice(0, 500) + '... (truncated)';
+  }
+  
+  return sanitized;
+}
+
 export type NotificationChannel = 'slack' | 'github_issue';
 
 export type NotificationResult = {
@@ -74,7 +92,7 @@ export async function sendSlackNotification(
       externalId: config.channel || 'default',
     };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = sanitizeErrorMessage(error);
 
     await logNotification(db, {
       snapshotDate,
@@ -138,7 +156,8 @@ export async function sendGitHubIssue(
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`GitHub API returned ${response.status}: ${errorText}`);
+      // Sanitize before throwing to prevent secrets in error chain
+      throw new Error(`GitHub API returned ${response.status}: ${sanitizeErrorMessage(errorText)}`);
     }
 
     const result = await response.json() as { number: number; html_url: string };
@@ -158,7 +177,7 @@ export async function sendGitHubIssue(
       externalId: String(result.number),
     };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = sanitizeErrorMessage(error);
 
     await logNotification(db, {
       snapshotDate,

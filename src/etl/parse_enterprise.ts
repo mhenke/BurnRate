@@ -21,9 +21,9 @@ export function parseDailyUsage(
 ): DailyUsageRow[] {
   if (!report || !Array.isArray(report.data)) return [];
   return report.data.map((entry: any) => {
-    const credits = entry.credits_used !== undefined ? Number(entry.credits_used) : 0;
-    const acceptedLines = entry.accepted_lines !== undefined ? Number(entry.accepted_lines) : 0;
-    const suggestedLines = entry.suggested_lines !== undefined ? Number(entry.suggested_lines) : 0;
+    const credits = Number(entry.credits_used ?? 0);
+    const acceptedLines = Number(entry.accepted_lines ?? 0);
+    const suggestedLines = Number(entry.suggested_lines ?? 0);
 
     const acceptanceRate = suggestedLines > 0 ? (acceptedLines / suggestedLines).toFixed(4) : '0.0000';
     const creditsPerAccLoc = acceptedLines > 0 ? (credits / acceptedLines).toFixed(4) : '0.0000';

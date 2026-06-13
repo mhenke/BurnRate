@@ -5,18 +5,17 @@ export type ReportType =
   | 'users-28-day'
   | 'enterprise-user-teams-1-day';
 
-export function buildReportUrls(
+export function buildReportUrl(
   enterprise: string,
   reportType: ReportType,
   day?: string
-): string[] {
+): string {
   const base = `/enterprises/${enterprise}/copilot/metrics/reports/${reportType}`;
   if (reportType.endsWith('-1-day')) {
     if (!day) throw new Error('day is required for 1-day report types');
-    return [`${base}?day=${day}`];
+    return `${base}?day=${day}`;
   }
-  // 28-day reports have no suffix or query params
-  return [base];
+  return base;
 }
 
 export async function fetchReport(
@@ -24,7 +23,7 @@ export async function fetchReport(
   reportType: ReportType,
   day: string
 ): Promise<{ download_links: string[]; report_day: string }> {
-  const urls = buildReportUrls(client.enterprise, reportType, day);
-  const response = await client.octokit.request(`GET ${urls[0]}`);
+  const url = buildReportUrl(client.enterprise, reportType, day);
+  const response = await client.octokit.request(`GET ${url}`);
   return response.data as { download_links: string[]; report_day: string };
 }

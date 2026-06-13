@@ -2,6 +2,8 @@
 
 > **Know your Copilot burn before GitHub does.** BurnRate ingests GitHub Copilot usage reports, stores raw payloads for audit history, and produces burn forecasts. No budget writes. No Copilot Skills automation.
 
+**Site:** https://mhenke.github.io/BurnRate/
+
 [![Tests](https://github.com/mhenke/BurnRate/actions/workflows/ci.yml/badge.svg)](https://github.com/mhenke/BurnRate/actions)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 

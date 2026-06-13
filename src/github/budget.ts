@@ -1,5 +1,5 @@
 import type { GitHubClient } from './client.js';
-import { withRetry } from '../budget/retry.js';
+import { withRetry, type RetryOptions } from '../budget/retry.js';
 
 export type BudgetReport = {
   total_budget: number;
@@ -14,10 +14,11 @@ export type BudgetReport = {
 
 export async function fetchBilling(
   client: GitHubClient,
-  options?: { maxAttempts?: number; delays?: number[] },
+  options?: { maxAttempts?: number; delays?: number[]; delayFn?: (ms: number) => Promise<void> },
 ): Promise<BudgetReport> {
   const maxAttempts = options?.maxAttempts ?? 3;
   const delays = options?.delays ?? [1000, 2000, 4000];
+  const delayFn = options?.delayFn;
 
   return withRetry(async () => {
     const response = await client.octokit.request(
@@ -85,5 +86,5 @@ export async function fetchBilling(
       forecast_30d: budget.forecast_30d,
       alert_level: alertLevel,
     };
-  }, { maxAttempts, delays });
+  }, { maxAttempts, delays, delayFn });
 }

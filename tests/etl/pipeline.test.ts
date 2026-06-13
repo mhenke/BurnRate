@@ -29,7 +29,10 @@ describe('ETL pipeline orchestration', () => {
     };
     const mockTeamReport = {
       report_day: '2026-06-12',
-      data: [{ team: 'platform', credits_used: 150 }]
+      data: [
+        { team: 'platform', credits_used: 150, active_users: 1, avg_acceptance_rate: 0.5 },
+        { github_login: 'jdoe', team: 'platform' }
+      ]
     };
 
     // Octokit Mock
@@ -101,10 +104,11 @@ describe('ETL pipeline orchestration', () => {
     assert.ok(raws.some((r: any) => r.report_type === 'seats'));
 
     // Verify user was upserted
-    const users = db.all(sql`SELECT github_login, seat_created_at FROM users`) as any[];
+    const users = db.all(sql`SELECT github_login, seat_created_at, team FROM users`) as any[];
     assert.equal(users.length, 1);
     assert.equal(users[0].github_login, 'jdoe');
     assert.ok(users[0].seat_created_at);
+    assert.equal(users[0].team, 'platform');
 
     // Verify daily usage was upserted
     const usage = db.all(sql`SELECT github_login, credits FROM daily_usage`) as any[];

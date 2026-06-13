@@ -1,0 +1,12 @@
+{
+  "name": "BurnRate",
+  "description": "FinOps-style governance for GitHub Copilot AI Credits. Monitor usage, forecast burn rates, set per-user budgets, and automate cost controls across your enterprise.",
+  "categories": ["Copilot", "Governance", "FinOps", "Cost Management"],
+  "license": "MIT",
+  "publisher": "BurnRate",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/burnrate/burnrate"
+  },
+  "is_public": true
+}

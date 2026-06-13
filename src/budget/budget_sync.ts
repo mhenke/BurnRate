@@ -2,7 +2,7 @@ import type { DbClient } from '../db/client.js';
 import type { GitHubClient } from '../github/client.js';
 import { fetchBilling, type BudgetReport } from '../github/budget.js';
 import { budgetSnapshotsPg, budgetSnapshotsSq, notificationLogPg, notificationLogSq, poolSnapshotsPg, poolSnapshotsSq } from '../db/schema.js';
-import { sendSlackNotification, sendGitHubIssue, type SlackConfig, type GitHubIssueConfig } from './notifications.js';
+import { sendSlackNotification, sendGitHubIssue, sanitizeErrorMessage, type SlackConfig, type GitHubIssueConfig } from './notifications.js';
 import { eq, desc, sql } from 'drizzle-orm';
 
 export type BudgetSyncConfig = {
@@ -237,7 +237,7 @@ export async function runBudgetSync(config: BudgetSyncConfig): Promise<BudgetSyn
     }
   } catch (error) {
     source = 'pool_fallback';
-    note = `Budget API error: ${error instanceof Error ? error.message : String(error)}`;
+    note = `Budget API error: ${sanitizeErrorMessage(error)}`;
     errors.push(note);
   }
   

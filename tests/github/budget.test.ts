@@ -201,7 +201,7 @@ describe('fetchBilling', () => {
       fetchSignedUrl: async <T>() => ({}) as T,
     };
 
-    const result = await fetchBilling(client, { maxAttempts: 3, delays: [100, 200] });
+    const result = await fetchBilling(client, { maxAttempts: 3, delays: [100, 200], delayFn: () => Promise.resolve() });
 
     assert.equal(result.total_budget, 10000);
     assert.equal(octokitMock.request.mock.calls.length, 3);
@@ -232,7 +232,7 @@ describe('fetchBilling', () => {
       fetchSignedUrl: async <T>() => ({}) as T,
     };
 
-    const result = await fetchBilling(client, { maxAttempts: 2, delays: [500] });
+    const result = await fetchBilling(client, { maxAttempts: 2, delays: [500], delayFn: () => Promise.resolve() });
 
     assert.equal(result.total_budget, 10000);
     assert.equal(octokitMock.request.mock.calls.length, 2);

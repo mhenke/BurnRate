@@ -1,22 +1,22 @@
 import { strict as assert } from 'node:assert';
 import { describe, it, vi } from 'vitest';
-import { buildReportUrls, fetchReport } from '../../src/github/reports.js';
+import { buildReportUrl, fetchReport } from '../../src/github/reports.js';
 import { fetchAllSeats } from '../../src/github/seats.js';
 
 describe('reports and seats API', () => {
   it('builds the correct report URL with date', () => {
     assert.equal(
-      buildReportUrls('acme', 'enterprise-1-day', '2026-06-12')[0],
+      buildReportUrl('acme', 'enterprise-1-day', '2026-06-12'),
       '/enterprises/acme/copilot/metrics/reports/enterprise-1-day?day=2026-06-12'
     );
     assert.equal(
-      buildReportUrls('acme', 'enterprise-28-day')[0],
+      buildReportUrl('acme', 'enterprise-28-day'),
       '/enterprises/acme/copilot/metrics/reports/enterprise-28-day'
     );
   });
 
-  it('buildReportUrls throws on 1-day report when day is missing', () => {
-    assert.throws(() => buildReportUrls('acme', 'enterprise-1-day'), /day is required/);
+  it('buildReportUrl throws on 1-day report when day is missing', () => {
+    assert.throws(() => buildReportUrl('acme', 'enterprise-1-day'), /day is required/);
   });
 
   it('fetchReport requests the correct URL and returns data', async () => {

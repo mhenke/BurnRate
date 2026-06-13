@@ -2,7 +2,7 @@ import { strict as assert } from 'node:assert';
 import { describe, it } from 'vitest';
 import { parseEnterpriseReportToUsers } from '../../src/etl/parse_users.js';
 import { parseDailyUsage } from '../../src/etl/parse_enterprise.js';
-import { parseTeamUsage } from '../../src/etl/parse_teams.js';
+import { parseTeamMembers, parseTeamUsage } from '../../src/etl/parse_teams.js';
 import { parseSeatsToUsers } from '../../src/etl/parse_seats.js';
 
 describe('ETL parse functions', () => {
@@ -57,6 +57,9 @@ describe('ETL parse functions', () => {
         credits_used: 500,
         active_users: 5,
         avg_acceptance_rate: 0.45
+      }, {
+        github_login: 'jdoe',
+        team: 'platform'
       }]
     };
     const rows = parseTeamUsage(report);
@@ -66,6 +69,29 @@ describe('ETL parse functions', () => {
     assert.equal(rows[0].credits, '500');
     assert.equal(rows[0].activeUsers, 5);
     assert.equal(rows[0].avgAcceptanceRate, '0.4500');
+  });
+
+  it('parses per-user team members from the same report payload', () => {
+    const report = {
+      report_day: '2026-06-12',
+      data: [{
+        team: 'platform',
+        credits_used: 500,
+        active_users: 5,
+        avg_acceptance_rate: 0.45
+      }, {
+        github_login: 'jdoe',
+        team: 'platform'
+      }, {
+        github_login: 'asmith',
+        team: 'Security'
+      }]
+    };
+    const rows = parseTeamMembers(report);
+    assert.equal(rows.length, 2);
+    assert.equal(rows[0].githubLogin, 'jdoe');
+    assert.equal(rows[0].team, 'platform');
+    assert.equal(rows[1].team, 'Security');
   });
 
   it('parses seat data to users list', () => {

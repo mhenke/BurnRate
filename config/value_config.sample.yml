@@ -1,0 +1,22 @@
+# BurnRate Value Tier Configuration
+# Teams are matched case-insensitively. First match wins.
+# Missing or unknown teams default to 'normal'.
+# title_patterns keys are ignored (forward-compatible).
+
+critical:
+  teams:
+    - platform
+    - security
+    - infrastructure
+
+normal:
+  teams:
+    - product
+    - engineering
+    - design
+
+low_priority:
+  teams:
+    - marketing
+    - ops
+    - sales

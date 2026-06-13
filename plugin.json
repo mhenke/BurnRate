@@ -1,0 +1,9 @@
+{
+  "name": "burnrate",
+  "display-name": "BurnRate",
+  "description": "GitHub Copilot AI Credit Governance Platform — monitor, forecast, and control Copilot spending across your enterprise",
+  "version": "1.0.0",
+  "categories": ["governance", "finops", "ai", "cost-management"],
+  "license": "MIT",
+  "skills": "skills/"
+}
