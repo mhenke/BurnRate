@@ -298,7 +298,7 @@ Sets up Octokit with the required `X-GitHub-Api-Version: 2026-03-10` header, PAT
 - Create: `src/github/types.ts`
 - Create: `tests/github/client.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [~] **Step 1: Write the failing test**
 
 ```ts
 import { strict as assert } from 'node:assert';
