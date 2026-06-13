@@ -181,7 +181,7 @@ Create the schema definition module with all Phase 1 tables. Naming follows the 
 - Create: `src/db/schema.ts`
 - Create: `tests/db/schema.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [~] **Step 1: Write the failing test**
 
 ```ts
 import { strict as assert } from 'node:assert';
