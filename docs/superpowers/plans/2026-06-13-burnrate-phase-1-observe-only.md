@@ -448,7 +448,7 @@ Each parse function accepts raw JSONB and returns typed row arrays. Tests use fi
 - Create: `tests/etl/raw_storage.test.ts`
 - Create: `tests/etl/parse_users.test.ts`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```ts
 // tests/etl/raw_storage.test.ts
@@ -473,12 +473,12 @@ assert.equal(rows.length, 1);
 assert.equal(rows[0].github_login, 'jdoe');
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npm test -- tests/etl/raw_storage.test.ts tests/etl/parse_users.test.ts`
 Expected: fail.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```ts
 // src/etl/raw_storage.ts
@@ -617,12 +617,12 @@ export function parseSeatsToUsers(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npm test -- tests/etl/raw_storage.test.ts tests/etl/parse_users.test.ts`
 Expected: pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit** `41a0393`
 
 ```bash
 git add src/etl/raw_storage.ts src/etl/parse_users.ts src/etl/parse_enterprise.ts src/etl/parse_teams.ts src/etl/parse_seats.ts tests/etl/raw_storage.test.ts tests/etl/parse_users.test.ts
