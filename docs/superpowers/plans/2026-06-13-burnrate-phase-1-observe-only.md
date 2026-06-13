@@ -298,79 +298,35 @@ Sets up Octokit with the required `X-GitHub-Api-Version: 2026-03-10` header, PAT
 - Create: `src/github/types.ts`
 - Create: `tests/github/client.test.ts`
 
-- [~] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { strict as assert } from 'node:assert';
+import { describe, it } from 'vitest';
 import { createGitHubClient } from '../../src/github/client.js';
 
-assert.equal(typeof createGitHubClient, 'function');
+describe('github client', () => {
+  it('exports createGitHubClient function', () => {
+    assert.equal(typeof createGitHubClient, 'function');
+  });
+});
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
-Run: `npm test -- tests/github/client.test.ts`
+Run: `npx vitest run tests/github/client.test.ts`
 Expected: fail.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
-```ts
-// src/github/types.ts
-export type CopilotReportResponse = {
-  report_day: string;
-  download_links: string[];
-};
+We implement [src/github/client.ts](file:///home/mhenke/Projects/BurnRate/src/github/client.ts) and [src/github/types.ts](file:///home/mhenke/Projects/BurnRate/src/github/types.ts) with Octokit setup and `fetchSignedUrl` helper.
 
-export type CopilotSeat = {
-  assignee: { login: string };
-  last_activity_at: string | null;
-  last_activity_editor: string | null;
-  created_at: string;
-  plan_type: string;
-};
-```
+- [x] **Step 4: Run test to verify it passes**
 
-```ts
-// src/github/client.ts
-import { Octokit } from 'octokit';
-
-export type GitHubClient = {
-  octokit: Octokit;
-  enterprise: string;
-  org: string;
-  fetchSignedUrl: <T>(url: string) => Promise<T>;
-};
-
-export function createGitHubClient(token: string, enterprise: string, org: string): GitHubClient {
-  const octokit = new Octokit({
-    auth: token,
-    baseUrl: 'https://api.github.com',
-    request: {
-      headers: {
-        'X-GitHub-Api-Version': '2026-03-10',
-      },
-    },
-  });
-
-  async function fetchSignedUrl<T>(url: string): Promise<T> {
-    // Signed URLs expire — fetch and parse immediately
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Signed URL fetch failed: ${response.status} ${response.statusText}`);
-    }
-    return response.json() as Promise<T>;
-  }
-
-  return { octokit, enterprise, org, fetchSignedUrl };
-}
-```
-
-- [ ] **Step 4: Run test to verify it passes**
-
-Run: `npm test -- tests/github/client.test.ts`
+Run: `npx vitest run tests/github/client.test.ts`
 Expected: pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit** `f6790ff`
 
 ```bash
 git add src/github/client.ts src/github/types.ts tests/github/client.test.ts
