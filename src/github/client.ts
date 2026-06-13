@@ -1,4 +1,5 @@
 import { Octokit } from 'octokit';
+import { URL } from 'node:url';
 
 export type GitHubClient = {
   octokit: Octokit;
@@ -18,9 +19,29 @@ export function createGitHubClient(token: string, enterprise: string, org: strin
     },
   });
 
-  async function fetchSignedUrl<T>(url: string): Promise<T> {
+  async function fetchSignedUrl<T>(urlStr: string): Promise<T> {
+    const parsed = new URL(urlStr);
+    if (parsed.protocol !== 'https:') {
+      throw new Error('SSRF Prevention: Only HTTPS is permitted');
+    }
+
+    const allowedHosts = [
+      'api.github.com',
+      'github.com',
+      'github-cloud.s3.amazonaws.com',
+      'github-cloud.githubusercontent.com'
+    ];
+
+    const isWhitelisted = allowedHosts.some(
+      allowed => parsed.hostname === allowed || parsed.hostname.endsWith('.' + allowed)
+    );
+
+    if (!isWhitelisted) {
+      throw new Error(`SSRF Prevention: Host ${parsed.hostname} is not whitelisted`);
+    }
+
     // Signed URLs expire — fetch and parse immediately
-    const response = await fetch(url);
+    const response = await fetch(urlStr);
     if (!response.ok) {
       throw new Error(`Signed URL fetch failed: ${response.status} ${response.statusText}`);
     }
@@ -29,3 +50,4 @@ export function createGitHubClient(token: string, enterprise: string, org: strin
 
   return { octokit, enterprise, org, fetchSignedUrl };
 }
+

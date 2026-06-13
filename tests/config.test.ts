@@ -52,4 +52,28 @@ describe('config', () => {
       delete process.env.DATABASE_URL;
     }
   });
+
+  it('prevents environment variable syntax injection from overriding structure', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'burnrate-'));
+    const file = join(dir, 'burnrate.yml');
+
+    process.env.GITHUB_TOKEN = 'token-value\n  enterprise: malicious\n  org: malicious-org';
+    process.env.DATABASE_URL = 'postgresql://localhost:5432/test';
+
+    try {
+      writeFileSync(
+        file,
+        `github:\n  enterprise: acme\n  org: acme-inc\n  token: \${GITHUB_TOKEN}\npostgres:\n  url: \${DATABASE_URL}\n`,
+        'utf8',
+      );
+      const config = loadConfig(file);
+      assert.equal(config.github.enterprise, 'acme');
+      assert.equal(config.github.org, 'acme-inc');
+      assert.equal(config.github.token, 'token-value\n  enterprise: malicious\n  org: malicious-org');
+    } finally {
+      delete process.env.GITHUB_TOKEN;
+      delete process.env.DATABASE_URL;
+    }
+  });
 });
+

@@ -26,9 +26,9 @@ describe('github client', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const result = await client.fetchSignedUrl('https://example.com/signed-url');
+    const result = await client.fetchSignedUrl('https://github-cloud.githubusercontent.com/signed-url');
     assert.deepEqual(result, mockResponse);
-    assert.equal(fetchMock.mock.calls[0][0], 'https://example.com/signed-url');
+    assert.equal(fetchMock.mock.calls[0][0], 'https://github-cloud.githubusercontent.com/signed-url');
   });
 
   it('fetchSignedUrl throws error when response is not ok', async () => {
@@ -43,8 +43,28 @@ describe('github client', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     await assert.rejects(
-      () => client.fetchSignedUrl('https://example.com/bad-url'),
+      () => client.fetchSignedUrl('https://github-cloud.githubusercontent.com/bad-url'),
       /Signed URL fetch failed: 404 Not Found/
     );
   });
+
+  it('fetchSignedUrl throws error on non-whitelisted or non-HTTPS URLs', async () => {
+    const client = createGitHubClient('token', 'acme', 'acme-inc');
+
+    await assert.rejects(
+      () => client.fetchSignedUrl('http://github.com/signed-url'),
+      /SSRF Prevention: Only HTTPS is permitted/
+    );
+
+    await assert.rejects(
+      () => client.fetchSignedUrl('https://example.com/signed-url'),
+      /SSRF Prevention: Host example.com is not whitelisted/
+    );
+
+    await assert.rejects(
+      () => client.fetchSignedUrl('https://localhost/signed-url'),
+      /SSRF Prevention: Host localhost is not whitelisted/
+    );
+  });
+
 });
