@@ -857,7 +857,7 @@ git commit -m "feat: add forecast engine with 7d/30d moving averages"
 - Create: `.github/workflows/daily-forecast.yml`
 - Create: `tests/index.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { strict as assert } from 'node:assert';
@@ -866,12 +866,12 @@ import { main } from '../src/index.js';
 assert.equal(typeof main, 'function');
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm test -- tests/index.test.ts`
 Expected: fail because `main` is still the stub.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```ts
 // src/index.ts
@@ -1016,12 +1016,12 @@ Key differences from original workflows:
 - Added `BURNRATE_CONFIG` env var for explicit config path
 - No `permissions:` block (PAT auth supersedes)
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npm test -- tests/index.test.ts`
 Expected: pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit** `4c6649a`
 
 ```bash
 git add src/index.ts .github/workflows/nightly-etl.yml .github/workflows/daily-forecast.yml tests/index.test.ts
