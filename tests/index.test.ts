@@ -41,7 +41,8 @@ describe('CLI entrypoint', () => {
 
     const pipelineSpy = vi.spyOn(pipelineModule, 'runObserveOnlyPipeline').mockResolvedValue({
       rawStored: 5,
-      usageUpserted: 2
+      usageUpserted: 2,
+      errors: [],
     });
 
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});

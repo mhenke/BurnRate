@@ -13,6 +13,7 @@ export type BudgetSyncConfig = {
   issueRepoName: string;
   issueRepoToken: string;
   dryRun?: boolean;
+  fetchOptions?: { maxAttempts?: number; delays?: number[]; delayFn?: (ms: number) => Promise<void> };
 };
 
 export type BudgetSyncResult = {
@@ -229,7 +230,7 @@ export async function runBudgetSync(config: BudgetSyncConfig): Promise<BudgetSyn
   let note: string | null = null;
   
   try {
-    billingReport = await fetchBilling(github);
+    billingReport = await fetchBilling(github, config.fetchOptions);
     
     if (billingReport.total_budget === 0 || billingReport.total_budget === undefined) {
       source = 'pool_fallback';

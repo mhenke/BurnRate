@@ -89,6 +89,7 @@ describe('runBudgetSync', () => {
       issueRepoOwner: 'acme',
       issueRepoName: 'burnrate',
       issueRepoToken: 'ghp_test',
+      fetchOptions: { delayFn: () => Promise.resolve() },
     };
 
     const result = await runBudgetSync(config);
@@ -129,6 +130,7 @@ describe('runBudgetSync', () => {
       issueRepoOwner: 'acme',
       issueRepoName: 'burnrate',
       issueRepoToken: 'ghp_test',
+      fetchOptions: { delayFn: () => Promise.resolve() },
     };
 
     const result = await runBudgetSync(config);
@@ -165,6 +167,7 @@ describe('runBudgetSync', () => {
       issueRepoOwner: 'acme',
       issueRepoName: 'burnrate',
       issueRepoToken: 'ghp_test',
+      fetchOptions: { delayFn: () => Promise.resolve() },
     };
 
     const result = await runBudgetSync(config);
@@ -189,6 +192,7 @@ describe('runBudgetSync', () => {
       issueRepoOwner: 'acme',
       issueRepoName: 'burnrate',
       issueRepoToken: 'ghp_test',
+      fetchOptions: { delayFn: () => Promise.resolve() },
     };
 
     const result = await runBudgetSync(config);
@@ -209,6 +213,7 @@ describe('runBudgetSync', () => {
       issueRepoOwner: 'acme',
       issueRepoName: 'burnrate',
       issueRepoToken: 'ghp_test',
+      fetchOptions: { delayFn: () => Promise.resolve() },
     };
 
     const result = await runBudgetSync(config);
@@ -229,6 +234,7 @@ describe('runBudgetSync', () => {
       issueRepoOwner: 'acme',
       issueRepoName: 'burnrate',
       issueRepoToken: 'ghp_test',
+      fetchOptions: { delayFn: () => Promise.resolve() },
     };
 
     const result = await runBudgetSync(config);
@@ -249,6 +255,7 @@ describe('runBudgetSync', () => {
       issueRepoOwner: 'acme',
       issueRepoName: 'burnrate',
       issueRepoToken: 'ghp_test',
+      fetchOptions: { delayFn: () => Promise.resolve() },
     };
 
     const result = await runBudgetSync(config);
@@ -292,6 +299,7 @@ describe('runBudgetSync', () => {
       issueRepoOwner: 'acme',
       issueRepoName: 'burnrate',
       issueRepoToken: 'ghp_test',
+      fetchOptions: { delayFn: () => Promise.resolve() },
     };
 
     const mockFetch = vi.fn().mockResolvedValue({
@@ -353,6 +361,7 @@ describe('runBudgetSync', () => {
       issueRepoOwner: 'acme',
       issueRepoName: 'burnrate',
       issueRepoToken: 'ghp_test',
+      fetchOptions: { delayFn: () => Promise.resolve() },
     };
 
     const result = await runBudgetSync(config);
@@ -413,6 +422,7 @@ describe('runBudgetSync', () => {
       issueRepoOwner: 'acme',
       issueRepoName: 'burnrate',
       issueRepoToken: 'ghp_test',
+      fetchOptions: { delayFn: () => Promise.resolve() },
     };
 
     const result = await runBudgetSync(config);
@@ -439,6 +449,7 @@ describe('runBudgetSync', () => {
       issueRepoOwner: 'acme',
       issueRepoName: 'burnrate',
       issueRepoToken: 'ghp_test',
+      fetchOptions: { delayFn: () => Promise.resolve() },
       dryRun: true,
     };
 
@@ -505,6 +516,7 @@ describe('runBudgetSync', () => {
       issueRepoOwner: 'acme',
       issueRepoName: 'burnrate',
       issueRepoToken: 'ghp_test',
+      fetchOptions: { delayFn: () => Promise.resolve() },
     };
 
     const result = await runBudgetSync(config);
@@ -543,6 +555,7 @@ describe('runBudgetSync', () => {
       issueRepoOwner: 'acme',
       issueRepoName: 'burnrate',
       issueRepoToken: 'ghp_test',
+      fetchOptions: { delayFn: () => Promise.resolve() },
     };
 
     const result = await runBudgetSync(config);

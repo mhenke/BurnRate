@@ -22,6 +22,7 @@ import {
 export type PipelineResult = {
   rawStored: number;
   usageUpserted: number;
+  errors: string[];
 };
 
 /**
@@ -56,18 +57,25 @@ export async function runObserveOnlyPipeline(
   db: DbClient,
   day: string,
 ): Promise<PipelineResult> {
-  const result: PipelineResult = { rawStored: 0, usageUpserted: 0 };
+  const result: PipelineResult = { rawStored: 0, usageUpserted: 0, errors: [] };
   const isSqlite = typeof db.run === 'function';
   const T = getTables(isSqlite);
 
   // 1. Process standard 1-day reports
   const reportTypes = ['users-1-day', 'enterprise-1-day', 'enterprise-user-teams-1-day'] as const;
+  let totalFetchAttempts = 0;
+  let totalFetchFailures = 0;
 
   for (const reportType of reportTypes) {
     const reportData = await fetchReport(gh, reportType, day).catch((err) => {
-      console.error(`Failed to fetch report ${reportType}:`, err);
+      const errorMsg = `Failed to fetch report ${reportType}: ${err instanceof Error ? err.message : String(err)}`;
+      console.error(errorMsg);
+      result.errors.push(errorMsg);
+      totalFetchFailures++;
       return null;
     });
+
+    totalFetchAttempts++;
 
     if (!reportData || !Array.isArray(reportData.download_links)) {
       continue;
@@ -75,7 +83,9 @@ export async function runObserveOnlyPipeline(
 
     for (const link of reportData.download_links) {
       const rawPayload = await gh.fetchSignedUrl<any>(link).catch((err) => {
-        console.error(`Failed to download report payload from ${link}:`, err);
+        const errorMsg = `Failed to download report payload from ${link}: ${err instanceof Error ? err.message : String(err)}`;
+        console.error(errorMsg);
+        result.errors.push(errorMsg);
         return null;
       });
 
@@ -184,9 +194,16 @@ export async function runObserveOnlyPipeline(
 
   // 2. Process active seat allocations
   const seats = await fetchAllSeats(gh).catch((err) => {
-    console.error('Failed to fetch seats:', err);
+    const errorMsg = `Failed to fetch seats: ${err instanceof Error ? err.message : String(err)}`;
+    console.error(errorMsg);
+    result.errors.push(errorMsg);
     return null;
   });
+
+  // Check if all fetches failed - this is a critical failure
+  if (totalFetchAttempts > 0 && totalFetchFailures === totalFetchAttempts && !seats) {
+    result.errors.unshift('CRITICAL: All report fetches failed. Check GitHub API connectivity and credentials.');
+  }
 
   if (seats) {
     const seatsRow = normalizeRawReport({

@@ -103,7 +103,19 @@ export async function main(argv: string[]): Promise<void> {
     await runMigrations(db);
     const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
     const result = await runObserveOnlyPipeline(gh, db, yesterday);
-    console.log(`ETL complete: ${result.rawStored} raw reports stored`);
+    
+    if (result.errors.length > 0) {
+      console.error(`ETL completed with ${result.errors.length} error(s):`);
+      for (const error of result.errors) {
+        console.error(`  - ${error}`);
+      }
+      // Exit with error if all fetches failed
+      if (result.errors.some(e => e.includes('CRITICAL'))) {
+        process.exit(1);
+      }
+    } else {
+      console.log(`ETL complete: ${result.rawStored} raw reports stored, ${result.usageUpserted} usage records upserted`);
+    }
 
     await closeDb();
     return;

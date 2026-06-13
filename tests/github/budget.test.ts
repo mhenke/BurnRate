@@ -170,7 +170,7 @@ describe('fetchBilling', () => {
     };
 
     await assert.rejects(
-      async () => fetchBilling(client),
+      async () => fetchBilling(client, { delayFn: () => Promise.resolve() }),
       /Budget data not available from GitHub API/,
     );
   });
