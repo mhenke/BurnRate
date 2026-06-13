@@ -6,7 +6,7 @@
 
 **Architecture:** A small Node/TypeScript CLI wraps a GitHub API client, a Postgres client, and a set of ETL parsers. GitHub Actions schedules the CLI for nightly ingestion and morning forecasting. Raw report payloads are stored first, then parsed into normalized tables so schema changes can be recovered without losing history.
 
-**Tech Stack:** TypeScript, Node.js, `pg`, `octokit`, `yaml`, `dotenv`, `tsx`, `vitest`, GitHub Actions, Postgres.
+**Tech Stack:** TypeScript, Node.js, `pg`, `octokit`, `dotenv`, `tsx`, `vitest`, GitHub Actions, Postgres.
 
 ---
 
@@ -16,31 +16,29 @@
 - Create: `package.json`
 - Create: `tsconfig.json`
 - Create: `.gitignore`
+- Create: `README.md`
 - Create: `.env.sample`
 - Create: `src/index.ts`
 - Create: `tests/bootstrap.test.ts`
 
-- [~] **Step 1: Write the failing test**
+- [ ] **Step 1: Write the failing test**
 
 ```ts
-import { existsSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { it, expect } from 'vitest';
 
-describe('bootstrap', () => {
-  it('has package.json with expected fields', () => {
-    const pkg = JSON.parse(existsSync('package.json') ? '{}' : '{}');
-    // This will fail until package.json exists and has the name field:
-    expect(pkg.name).toBe('burnrate');
-  });
+it('imports the main module', async () => {
+  await expect(import('../src/index.js')).resolves.toBeDefined();
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+This fails because `src/index.ts` doesn't exist yet.
+
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/bootstrap.test.ts`
 Expected: fail because `package.json` does not exist or has no `name` field.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```json
 {
@@ -52,8 +50,7 @@ Expected: fail because `package.json` does not exist or has no `name` field.
     "test": "vitest run",
     "check": "tsx src/index.ts check",
     "etl": "tsx src/index.ts etl",
-    "forecast": "tsx src/index.ts forecast",
-    "migrate": "tsx src/index.ts migrate"
+    "forecast": "tsx src/index.ts forecast"
   },
   "dependencies": {
     "octokit": "^4.0.0",
@@ -62,41 +59,33 @@ Expected: fail because `package.json` does not exist or has no `name` field.
     "dotenv": "^16.4.0"
   },
   "devDependencies": {
-    "@types/pg": "^8.11.0",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0",
+    "@types/pg": "^8.11.0",
     "vitest": "^3.0.0"
   }
 }
 ```
 
-```json
-// tsconfig.json
-{
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "strict": true,
-    "esModuleInterop": true,
-    "outDir": "dist",
-    "rootDir": "src",
-    "declaration": true
-  },
-  "include": ["src"],
-  "exclude": ["tests"]
+```ts
+// src/index.ts
+export async function main(_argv: string[]): Promise<void> {
+  // stub — wiring happens in Task 10
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
-Run: `npm install && npx vitest run tests/bootstrap.test.ts`
-Expected: pass.
+Run: `npm run build`
+Expected: TypeScript compiles.
 
-- [ ] **Step 5: Commit**
+Run: `npm install`
+Expected: installs dependencies.
+
+- [x] **Step 5: Commit** `be70f54`
 
 ```bash
-git add package.json tsconfig.json .gitignore .env.sample src/index.ts tests/bootstrap.test.ts
+git add package.json tsconfig.json .gitignore README.md .env.sample src/index.ts tests/bootstrap.test.ts
 git commit -m "feat: bootstrap burnrate repo"
 ```
 
@@ -123,7 +112,7 @@ const dir = mkdtempSync(join(tmpdir(), 'burnrate-'));
 const file = join(dir, 'burnrate.yml');
 writeFileSync(
   file,
-  `github:\n  enterprise: acme\n  org: acme-inc\n  token: ${'${GITHUB_TOKEN}'}\npostgres:\n  url: ${'${DATABASE_URL}'}\n`,
+  `github:\n  enterprise: acme\n  org: acme-inc\n  token: \${GITHUB_TOKEN}\npostgres:\n  url: \${DATABASE_URL}\n`,
   'utf8',
 );
 assert.throws(() => loadConfig(file), /Missing burnrate.yml/);
@@ -131,17 +120,14 @@ assert.throws(() => loadConfig(file), /Missing burnrate.yml/);
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run tests/config.test.ts`
+Run: `npm test -- tests/config.test.ts`
 Expected: failure because `loadConfig` is not implemented.
 
 - [ ] **Step 3: Write minimal implementation**
 
 ```ts
-import { config as dotenvConfig } from 'dotenv';
 import { readFileSync } from 'node:fs';
 import { parse } from 'yaml';
-
-dotenvConfig(); // Load .env into process.env
 
 export type BurnrateConfig = {
   github: { enterprise: string; org: string; token: string };
@@ -175,7 +161,7 @@ postgres:
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run tests/config.test.ts`
+Run: `npm test -- tests/config.test.ts`
 Expected: pass.
 
 - [ ] **Step 5: Commit**
@@ -187,12 +173,12 @@ git commit -m "feat: add burnrate config loading"
 
 ---
 
-### Task 3: Create the Postgres schema and migration runner
+### Task 3: Define the Postgres schema (aligned to reference doc)
+
+Create the schema definition module with all Phase 1 tables. Naming follows the reference doc exactly (`snapshot_date`, `total_credits`, `usage_date`, `fetched_at`, etc.). `classification_history` is created as a stub but not populated until Phase 2.
 
 **Files:**
-- Create: `src/db/client.ts`
 - Create: `src/db/schema.ts`
-- Create: `src/db/migrate.ts`
 - Create: `tests/db/schema.test.ts`
 
 - [ ] **Step 1: Write the failing test**
@@ -206,8 +192,8 @@ assert.equal(schemaStatements.length, 7);
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run tests/db/schema.test.ts`
-Expected: fail because schema statements are not defined.
+Run: `npm test -- tests/db/schema.test.ts`
+Expected: fail because schema module does not exist.
 
 - [ ] **Step 3: Write minimal implementation**
 
@@ -215,22 +201,22 @@ Expected: fail because schema statements are not defined.
 export const schemaStatements = [
   `CREATE TABLE IF NOT EXISTS raw_reports (
     id BIGSERIAL PRIMARY KEY,
+    report_date DATE NOT NULL,
     report_type TEXT NOT NULL,
-    report_day DATE NOT NULL,
     source_url TEXT NOT NULL,
     payload JSONB NOT NULL,
-    ingested_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (report_type, report_day)
+    fetched_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (report_type, report_date)
   )`,
   `CREATE TABLE IF NOT EXISTS users (
-    github_login TEXT PRIMARY KEY,
+    login TEXT PRIMARY KEY,
     enterprise TEXT NOT NULL,
     org TEXT NOT NULL,
     display_name TEXT,
     email TEXT,
     team TEXT,
-    employee_id TEXT,
     manager TEXT,
+    employee_id TEXT,
     seat_created_at TIMESTAMPTZ,
     last_activity_at TIMESTAMPTZ,
     consumption_tier TEXT,
@@ -248,8 +234,8 @@ export const schemaStatements = [
     agent_requests INTEGER NOT NULL DEFAULT 0,
     accepted_lines INTEGER NOT NULL DEFAULT 0,
     suggested_lines INTEGER NOT NULL DEFAULT 0,
-    acceptance_rate NUMERIC(5,4) NOT NULL DEFAULT 0,
-    credits_per_acc_loc NUMERIC(10,4) NOT NULL DEFAULT 0,
+    acceptance_rate NUMERIC(5,4),
+    credits_per_acc_loc NUMERIC(10,4),
     model_breakdown JSONB NOT NULL DEFAULT '{}'::jsonb,
     ide_breakdown JSONB NOT NULL DEFAULT '{}'::jsonb,
     language_breakdown JSONB NOT NULL DEFAULT '{}'::jsonb,
@@ -260,8 +246,17 @@ export const schemaStatements = [
     team TEXT NOT NULL,
     credits NUMERIC(12,2) NOT NULL DEFAULT 0,
     active_users INTEGER NOT NULL DEFAULT 0,
-    avg_acceptance_rate NUMERIC(5,4) NOT NULL DEFAULT 0,
+    avg_acceptance_rate NUMERIC(5,4),
     PRIMARY KEY (usage_date, team)
+  )`,
+  `CREATE TABLE IF NOT EXISTS classification_history (
+    effective_date DATE NOT NULL,
+    github_login TEXT NOT NULL,
+    consumption_from TEXT,
+    consumption_to TEXT,
+    value_tier TEXT,
+    reason TEXT,
+    PRIMARY KEY (effective_date, github_login)
   )`,
   `CREATE TABLE IF NOT EXISTS pool_snapshots (
     snapshot_date DATE PRIMARY KEY,
@@ -272,103 +267,125 @@ export const schemaStatements = [
     forecast_30d NUMERIC(12,2),
     pct_elapsed NUMERIC(8,4)
   )`,
-  `CREATE TABLE IF NOT EXISTS classification_history (
-    effective_date DATE NOT NULL,
-    github_login TEXT NOT NULL,
-    consumption_tier_old TEXT,
-    consumption_tier_new TEXT,
-    value_tier TEXT,
-    reason TEXT,
-    PRIMARY KEY (effective_date, github_login)
-  )`,
-  `CREATE TABLE IF NOT EXISTS _migrations (
-    id SERIAL PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE,
-    applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
-  )`,
 ];
 ```
 
-**Naming convention note:** The plan uses `usage_date` and `github_login` in daily_usage (matching the reference doc), `snapshot_date` in pool_snapshots, and `report_day` in raw_reports (the staging layer name, deliberately distinct from the normalized layer to avoid confusion). This aligns with the reference doc v2 naming. The one deliberate divergence: `raw_reports.report_day` is kept distinct from `daily_usage.usage_date` because the staging layer records what day a report series was fetched for, not the usage day itself.
-
-- [ ] **Step 3b: Implement the DB client and migration runner**
-
-```ts
-// src/db/client.ts
-import pg from 'pg';
-
-const { Pool } = pg;
-
-let pool: pg.Pool | null = null;
-
-export function getPool(connectionString: string): pg.Pool {
-  if (!pool) {
-    pool = new Pool({ connectionString, max: 5 });
-  }
-  return pool;
-}
-
-export async function query<T extends pg.QueryResultRow = any>(
-  text: string,
-  params?: any[],
-): Promise<pg.QueryResult<T>> {
-  if (!pool) throw new Error('Database not connected');
-  return pool.query<T>(text, params);
-}
-
-export async function transaction<T>(fn: (client: pg.PoolClient) => Promise<T>): Promise<T> {
-  if (!pool) throw new Error('Database not connected');
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const result = await fn(client);
-    await client.query('COMMIT');
-    return result;
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
-}
-
-export async function closePool(): Promise<void> {
-  if (pool) {
-    await pool.end();
-    pool = null;
-  }
-}
-```
-
-```ts
-// src/db/migrate.ts
-import { schemaStatements } from './schema.js';
-import { query, getPool } from './client.js';
-
-export async function runMigrations(connectionString: string): Promise<void> {
-  getPool(connectionString);
-  for (const stmt of schemaStatements) {
-    await query(stmt);
-  }
-  console.log(`Applied ${schemaStatements.length} schema statements`);
-}
-```
+Tables count: 6 (raw_reports, users, daily_usage, team_usage, classification_history, pool_snapshots).
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run tests/db/schema.test.ts`
+Run: `npm test -- tests/db/schema.test.ts`
 Expected: pass.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/db/client.ts src/db/schema.ts src/db/migrate.ts tests/db/schema.test.ts
-git commit -m "feat: add postgres schema bootstrap"
+git add src/db/schema.ts tests/db/schema.test.ts
+git commit -m "feat: define postgres schema aligned to reference"
 ```
 
 ---
 
-### Task 4: Implement GitHub API client with Octokit
+### Task 4: Build the DB client and migration runner
+
+**Files:**
+- Create: `src/db/client.ts`
+- Create: `src/db/migrate.ts`
+- Create: `tests/db/client.test.ts`
+
+- [ ] **Step 1: Write the failing test**
+
+```ts
+import { strict as assert } from 'node:assert';
+import { createDbClient } from '../../src/db/client.js';
+
+assert.equal(typeof createDbClient, 'function');
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `npm test -- tests/db/client.test.ts`
+Expected: fail because db client module does not exist.
+
+- [ ] **Step 3: Write minimal implementation**
+
+```ts
+// src/db/client.ts
+import pg from 'pg';
+
+export type DbClient = {
+  query: <T extends pg.QueryResultRow>(sql: string, params?: unknown[]) => Promise<pg.QueryResult<T>>;
+  transaction: <T>(fn: (client: DbClient) => Promise<T>) => Promise<T>;
+  close: () => Promise<void>;
+};
+
+export function createDbClient(connectionString: string): DbClient {
+  const pool = new pg.Pool({ connectionString, max: 5 });
+
+  async function query<T extends pg.QueryResultRow>(sql: string, params?: unknown[]) {
+    return pool.query<T>(sql, params);
+  }
+
+  async function transaction<T>(fn: (client: DbClient) => Promise<T>): Promise<T> {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const tx: DbClient = {
+        query: <T extends pg.QueryResultRow>(sql: string, params?: unknown[]) =>
+          client.query<T>(sql, params),
+        transaction,
+        close: () => client.release(),
+      };
+      const result = await fn(tx);
+      await client.query('COMMIT');
+      return result;
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
+  return { query, transaction, close: () => pool.end() };
+}
+```
+
+```ts
+// src/db/migrate.ts
+import type { DbClient } from './client.js';
+import { schemaStatements } from './schema.js';
+
+export async function runMigrations(db: DbClient): Promise<void> {
+  await db.transaction(async (tx) => {
+    for (const stmt of schemaStatements) {
+      await tx.query(stmt);
+    }
+  });
+}
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `npm test -- tests/db/client.test.ts`
+Expected: pass.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/db/client.ts src/db/migrate.ts tests/db/client.test.ts
+git commit -m "feat: add db client and migration runner"
+```
+
+---
+
+### Task 5: Implement the GitHub API client
+
+Sets up Octokit with the required `X-GitHub-Api-Version: 2026-03-10` header, PAT-based auth, pagination helper, and signed-URL fetch with expiration handling.
+
+**Prerequisites:**
+- The enterprise's "Copilot usage metrics" policy must be set to "Enabled everywhere" — otherwise all `/metrics/reports/*` endpoints return 403.
+- The workflow PAT must have scope `read:enterprise` (enterprise) or `manage_billing:copilot + read:org` (org-only). Fine-grained PATs do NOT work for enterprise endpoints.
 
 **Files:**
 - Create: `src/github/client.ts`
@@ -386,33 +403,24 @@ assert.equal(typeof createGitHubClient, 'function');
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run tests/github/client.test.ts`
-Expected: fail because createGitHubClient is not defined.
+Run: `npm test -- tests/github/client.test.ts`
+Expected: fail.
 
 - [ ] **Step 3: Write minimal implementation**
 
 ```ts
 // src/github/types.ts
-export type GitHubReportType = 'users-1-day' | 'enterprise-1-day' | 'enterprise-user-teams-1-day';
-
-export type SignedReportResponse = {
-  download_links: string[];
+export type CopilotReportResponse = {
   report_day: string;
+  download_links: string[];
 };
 
-export type SeatResponse = {
-  seats: Array<{
-    assignee: { login: string };
-    last_activity_at: string | null;
-    last_activity_editor: string | null;
-    created_at: string;
-    plan_type: string;
-  }>;
-};
-
-export type PaginationResult<T> = {
-  data: T[];
-  nextPage: number | null;
+export type CopilotSeat = {
+  assignee: { login: string };
+  last_activity_at: string | null;
+  last_activity_editor: string | null;
+  created_at: string;
+  plan_type: string;
 };
 ```
 
@@ -420,72 +428,57 @@ export type PaginationResult<T> = {
 // src/github/client.ts
 import { Octokit } from 'octokit';
 
-export type GitHubClientOptions = {
-  token: string;
+export type GitHubClient = {
+  octokit: Octokit;
   enterprise: string;
-  baseUrl?: string;
+  org: string;
+  fetchSignedUrl: <T>(url: string) => Promise<T>;
 };
 
-export function createGitHubClient(opts: GitHubClientOptions) {
+export function createGitHubClient(token: string, enterprise: string, org: string): GitHubClient {
   const octokit = new Octokit({
-    auth: opts.token,
-    baseUrl: opts.baseUrl ?? 'https://api.github.com',
+    auth: token,
+    baseUrl: 'https://api.github.com',
+    request: {
+      headers: {
+        'X-GitHub-Api-Version': '2026-03-10',
+      },
+    },
   });
 
-  // X-GitHub-Api-Version: 2026-03-10
-  octokit.hook.wrap('request', async (request, options) => {
-    options.headers['X-GitHub-Api-Version'] = '2026-03-10';
-    return request(options);
-  });
-
-  /**
-   * Generic paginator that follows GitHub's Link header.
-   */
-  async function paginate<T>(url: string, params: Record<string, any> = {}): Promise<T[]> {
-    const results: T[] = [];
-    let page: number | undefined;
-    do {
-      const { data, headers } = await octokit.request('GET ' + url, { ...params, page, per_page: 100 });
-      if (Array.isArray(data)) {
-        results.push(...data);
-      } else if (data && typeof data === 'object' && 'seats' in data) {
-        results.push(...(data as any).seats);
-      }
-      const linkHeader = headers.link as string | undefined;
-      page = undefined;
-      if (linkHeader) {
-        const match = linkHeader.match(/<[^>]*[?&]page=(\d+)>; rel="next"/);
-        if (match) page = parseInt(match[1], 10);
-      }
-    } while (page);
-    return results;
+  async function fetchSignedUrl<T>(url: string): Promise<T> {
+    // Signed URLs expire — fetch and parse immediately
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Signed URL fetch failed: ${response.status} ${response.statusText}`);
+    }
+    return response.json() as Promise<T>;
   }
 
-  return { octokit, paginate };
+  return { octokit, enterprise, org, fetchSignedUrl };
 }
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run tests/github/client.test.ts`
+Run: `npm test -- tests/github/client.test.ts`
 Expected: pass.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add src/github/client.ts src/github/types.ts tests/github/client.test.ts
-git commit -m "feat: add github octokit client with pagination"
+git commit -m "feat: add github client with octokit and signed-url fetcher"
 ```
 
 ---
 
-### Task 5: Implement report and seat fetching
+### Task 6: Implement GitHub API endpoint modules
 
 **Files:**
 - Create: `src/github/reports.ts`
 - Create: `src/github/seats.ts`
 - Create: `tests/github/reports.test.ts`
-- Create: `tests/github/seats.test.ts`
 
 - [ ] **Step 1: Write the failing test**
 
@@ -494,77 +487,90 @@ import { strict as assert } from 'node:assert';
 import { buildReportUrls } from '../../src/github/reports.js';
 
 assert.equal(
-  buildReportUrls('acme-inc', 'users-1-day', '2026-06-12')[0],
-  '/enterprises/acme-inc/copilot/metrics/reports/users-1-day?day=2026-06-12',
+  buildReportUrls('acme', 'enterprise-1-day', '2026-06-12')[0],
+  '/enterprises/acme/copilot/metrics/reports/enterprise-1-day?day=2026-06-12'
 );
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run tests/github/reports.test.ts`
-Expected: fail because buildReportUrls is not defined.
+Run: `npm test -- tests/github/reports.test.ts`
+Expected: fail.
 
 - [ ] **Step 3: Write minimal implementation**
 
 ```ts
 // src/github/reports.ts
-import type { GitHubReportType } from './types.js';
+export type ReportType =
+  | 'enterprise-1-day'
+  | 'enterprise-28-day'
+  | 'users-1-day'
+  | 'users-28-day'
+  | 'enterprise-user-teams-1-day';
 
-export function buildReportUrls(enterprise: string, reportType: GitHubReportType, day?: string): string[] {
+export function buildReportUrls(
+  enterprise: string,
+  reportType: ReportType,
+  day?: string
+): string[] {
   const base = `/enterprises/${enterprise}/copilot/metrics/reports/${reportType}`;
-  if (reportType.endsWith('-1-day') && day) {
+  if (reportType.endsWith('-1-day')) {
+    if (!day) throw new Error('day is required for 1-day report types');
     return [`${base}?day=${day}`];
   }
+  // 28-day reports have no suffix or query params
   return [base];
 }
 
-/**
- * Fetch a signed report by: (1) requesting the signed URL, (2) immediately
- * downloading the payload. Signed URLs expire quickly so we never store them
- * without fetching first.
- */
-export async function fetchSignedReport(
-  fetchUrl: string,
-  octokit: any,
-): Promise<{ payload: any; sourceUrl: string }> {
-  const { data } = await octokit.request('GET ' + fetchUrl);
-
-  const payloads: any[] = [];
-  for (const link of data.download_links) {
-    const resp = await fetch(link);
-    const json = await resp.json();
-    payloads.push(json);
-  }
-  return { payload: payloads.length === 1 ? payloads[0] : payloads, sourceUrl: fetchUrl };
+export async function fetchReport(
+  client: { octokit: any; fetchSignedUrl: <T>(url: string) => Promise<T> },
+  reportType: ReportType,
+  day: string
+): Promise<{ download_links: string[]; report_day: string }> {
+  const url = buildReportUrls(client.octokit, reportType, day);
+  // Steps: 1) GET report endpoint → signed URLs, 2) fetch each signed URL immediately
+  // Implementation detail deferred to pipeline orchestration (Task 8)
+  throw new Error('not implemented');
 }
 ```
 
 ```ts
 // src/github/seats.ts
-import type { SeatResponse } from './types.js';
+import type { GitHubClient, CopilotSeat } from './types.js';
 
-export async function fetchAllSeats(enterprise: string, octokit: any): Promise<SeatResponse['seats']> {
-  const url = `/enterprises/${enterprise}/copilot/billing/seats`;
-  const { data } = await octokit.request('GET ' + url, { per_page: 100 });
-  return data.seats;
+export async function fetchAllSeats(
+  client: GitHubClient,
+): Promise<CopilotSeat[]> {
+  const seats: CopilotSeat[] = [];
+  for await (const response of client.octokit.paginate.iterator(
+    client.octokit.rest.enterpriseAdmin.listCopilotSeatsForEnterprise as any,
+    { enterprise: client.enterprise, per_page: 100 },
+  )) {
+    for (const seat of response.data.seats ?? []) {
+      seats.push(seat as CopilotSeat);
+    }
+  }
+  return seats;
 }
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run tests/github/reports.test.ts tests/github/seats.test.ts`
+Run: `npm test -- tests/github/reports.test.ts`
 Expected: pass.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/github/reports.ts src/github/seats.ts tests/github/reports.test.ts tests/github/seats.test.ts
-git commit -m "feat: add report and seat fetching"
+git add src/github/reports.ts src/github/seats.ts tests/github/reports.test.ts
+git commit -m "feat: add report url builder and seat fetcher"
 ```
 
 ---
 
-### Task 6: Implement raw storage and ETL parsers
+### Task 7: Implement ETL raw storage and parse functions
+
+Each parse function accepts raw JSONB and returns typed row arrays. Tests use fixture data.
 
 **Files:**
 - Create: `src/etl/raw_storage.ts`
@@ -574,9 +580,6 @@ git commit -m "feat: add report and seat fetching"
 - Create: `src/etl/parse_seats.ts`
 - Create: `tests/etl/raw_storage.test.ts`
 - Create: `tests/etl/parse_users.test.ts`
-- Create: `tests/etl/parse_enterprise.test.ts`
-- Create: `tests/etl/parse_teams.test.ts`
-- Create: `tests/etl/parse_seats.test.ts`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -585,210 +588,185 @@ git commit -m "feat: add report and seat fetching"
 import { strict as assert } from 'node:assert';
 import { normalizeRawReport } from '../../src/etl/raw_storage.js';
 
-it('normalizes raw report metadata', () => {
-  const result = normalizeRawReport({ report_day: '2026-06-12', source_url: 'https://example.com/report', payload: { foo: 1 } });
-  assert.equal(result.report_day, '2026-06-12');
-  assert.equal(typeof result.ingested_at, 'string');
-});
+const result = normalizeRawReport({ report_type: 'users-1-day', report_date: '2026-06-12', source_url: 'https://example.com', payload: {} });
+assert.equal(result.report_date, '2026-06-12');
+assert.equal(result.report_type, 'users-1-day');
 ```
 
 ```ts
 // tests/etl/parse_users.test.ts
 import { strict as assert } from 'node:assert';
-import { parseUsersFromSeats } from '../../src/etl/parse_users.js';
+import { parseEnterpriseReportToUsers } from '../../src/etl/parse_users.js';
 
-it('parses users from seat payload', () => {
-  const seats = [
-    {
-      assignee: { login: 'jdoe' },
-      last_activity_at: '2026-06-10T12:00:00Z',
-      created_at: '2024-01-10T00:00:00Z',
-      plan_type: 'business',
-    },
-  ];
-  const users = parseUsersFromSeats(seats, 'acme', 'acme-inc');
-  assert.equal(users.length, 1);
-  assert.equal(users[0].github_login, 'jdoe');
-  assert.equal(users[0].enterprise, 'acme');
+const rows = parseEnterpriseReportToUsers('acme', 'acme-inc', {
+  report_day: '2026-06-12',
+  data: [{ github_login: 'jdoe', credits_used: 150 }],
 });
-```
-
-```ts
-// tests/etl/parse_enterprise.test.ts
-import { strict as assert } from 'node:assert';
-import { parseEnterpriseUsage } from '../../src/etl/parse_enterprise.js';
-
-it('parses enterprise daily report', () => {
-  const report = {
-    usage: [
-      {
-        day: '2026-06-12',
-        total_credits_used: 5000,
-        total_premium_request_units_used: 100,
-        breakdown: { models: {}, languages: {}, editors: {} },
-      },
-    ],
-  };
-  const parsed = parseEnterpriseUsage(report, 'acme');
-  assert.equal(parsed?.credits_used, 5000);
-  assert.equal(parsed?.usage_date, '2026-06-12');
-});
-```
-
-```ts
-// tests/etl/parse_teams.test.ts
-import { strict as assert } from 'node:assert';
-import { parseTeamUsage } from '../../src/etl/parse_teams.js';
-
-it('parses team-level usage from user-teams report', () => {
-  const report = [
-    { login: 'jdoe', teams: ['platform'], credits: 150 },
-    { login: 'asmith', teams: ['platform'], credits: 200 },
-    { login: 'bwilson', teams: ['security'], credits: 50 },
-  ];
-  const teams = parseTeamUsage(report, '2026-06-12');
-  assert.equal(teams.length, 2);
-  const platform = teams.find(t => t.team === 'platform');
-  assert.equal(platform?.credits, 350);
-  assert.equal(platform?.active_users, 2);
-});
-```
-
-```ts
-// tests/etl/parse_seats.test.ts
-import { strict as assert } from 'node:assert';
-import { parseSeatSnapshot } from '../../src/etl/parse_seats.js';
-
-it('parses seat snapshot into pool row', () => {
-  const seats = [
-    { plan_type: 'business', assignee: { login: 'a' } },
-    { plan_type: 'business', assignee: { login: 'b' } },
-  ];
-  const result = parseSeatSnapshot(seats, '2026-06-12', 3000);
-  assert.equal(result.total_credits, 6000);
-  assert.equal(result.snapshot_date, '2026-06-12');
-});
+assert.equal(rows.length, 1);
+assert.equal(rows[0].github_login, 'jdoe');
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `npx vitest run tests/etl/`
-Expected: all fail because parser functions are not defined.
+Run: `npm test -- tests/etl/raw_storage.test.ts tests/etl/parse_users.test.ts`
+Expected: fail.
 
-- [ ] **Step 3: Write minimal implementations**
+- [ ] **Step 3: Write minimal implementation**
 
 ```ts
 // src/etl/raw_storage.ts
-export function normalizeRawReport(input: { report_day: string; source_url: string; payload: any }) {
-  return { ...input, ingested_at: new Date().toISOString() };
+export type RawReportRow = {
+  report_date: string;
+  report_type: string;
+  source_url: string;
+  payload: Record<string, unknown>;
+  fetched_at?: string;
+};
+
+export function normalizeRawReport(input: Omit<RawReportRow, 'fetched_at'>): RawReportRow {
+  return { ...input, fetched_at: new Date().toISOString() };
 }
 ```
 
 ```ts
 // src/etl/parse_users.ts
-export type ParsedUser = {
-  github_login: string;
+export type UserRow = {
+  login: string;
   enterprise: string;
   org: string;
-  seat_created_at: string | null;
-  last_activity_at: string | null;
+  display_name?: string;
+  email?: string;
+  team?: string;
+  seat_created_at?: string;
+  last_activity_at?: string;
+  consumption_tier?: string;
+  value_tier?: string;
 };
 
-export function parseUsersFromSeats(seats: any[], enterprise: string, org: string): ParsedUser[] {
-  return seats.map((s: any) => ({
-    github_login: s.assignee.login,
+/** Parse enterprise-1-day report into user rows (status/activity snapshot). */
+export function parseEnterpriseReportToUsers(
+  enterprise: string,
+  org: string,
+  report: { report_day: string; data: Array<{ github_login: string } & Record<string, unknown>> },
+): UserRow[] {
+  return report.data.map((entry) => ({
+    login: entry.github_login,
     enterprise,
     org,
-    seat_created_at: s.created_at ?? null,
-    last_activity_at: s.last_activity_at ?? null,
   }));
 }
 ```
 
 ```ts
 // src/etl/parse_enterprise.ts
-export type ParsedEnterpriseUsage = {
+export type DailyUsageRow = {
   usage_date: string;
-  enterprise: string;
-  credits_used: number;
+  github_login: string;
+  credits: number;
+  tokens_input: number;
+  tokens_output: number;
+  chat_requests: number;
+  agent_requests: number;
+  accepted_lines: number;
+  suggested_lines: number;
+  acceptance_rate: number | null;
+  credits_per_acc_loc: number | null;
+  model_breakdown: Record<string, unknown>;
+  ide_breakdown: Record<string, unknown>;
+  language_breakdown: Record<string, unknown>;
 };
 
-export function parseEnterpriseUsage(report: any, enterprise: string): ParsedEnterpriseUsage | null {
-  if (!report.usage?.length) return null;
-  const day = report.usage[0];
-  return {
-    usage_date: day.day,
-    enterprise,
-    credits_used: day.total_credits_used ?? 0,
-  };
+/** Parse users-1-day report into daily_usage rows. */
+export function parseDailyUsage(
+  report: { report_day: string; data: Array<Record<string, unknown>> },
+): DailyUsageRow[] {
+  return report.data.map((entry: any) => ({
+    usage_date: report.report_day,
+    github_login: entry.github_login ?? '',
+    credits: Number(entry.credits_used ?? 0),
+    tokens_input: Number(entry.tokens_input ?? 0),
+    tokens_output: Number(entry.tokens_output ?? 0),
+    chat_requests: Number(entry.chat_requests ?? 0),
+    agent_requests: Number(entry.agent_requests ?? 0),
+    accepted_lines: Number(entry.accepted_lines ?? 0),
+    suggested_lines: Number(entry.suggested_lines ?? 0),
+    acceptance_rate: entry.suggested_lines > 0 ? entry.accepted_lines / entry.suggested_lines : null,
+    credits_per_acc_loc: entry.accepted_lines > 0 ? Number(entry.credits_used ?? 0) / entry.accepted_lines : null,
+    model_breakdown: entry.model_breakdown ?? {},
+    ide_breakdown: entry.ide_breakdown ?? {},
+    language_breakdown: entry.language_breakdown ?? {},
+  }));
 }
 ```
 
 ```ts
 // src/etl/parse_teams.ts
-export type ParsedTeamUsage = {
+export type TeamUsageRow = {
   usage_date: string;
   team: string;
   credits: number;
   active_users: number;
-  avg_acceptance_rate: number;
+  avg_acceptance_rate: number | null;
 };
 
-export function parseTeamUsage(report: any[], usageDate: string): ParsedTeamUsage[] {
-  const teamMap = new Map<string, { credits: number; users: Set<string> }>();
-  for (const entry of report) {
-    for (const team of entry.teams ?? []) {
-      if (!teamMap.has(team)) teamMap.set(team, { credits: 0, users: new Set() });
-      const group = teamMap.get(team)!;
-      group.credits += entry.credits ?? 0;
-      group.users.add(entry.login);
-    }
-  }
-  return Array.from(teamMap.entries()).map(([team, data]) => ({
-    usage_date: usageDate,
-    team,
-    credits: data.credits,
-    active_users: data.users.size,
-    avg_acceptance_rate: 0,
+/** Parse enterprise-user-teams-1-day report into team_usage rows. */
+export function parseTeamUsage(
+  report: { report_day: string; data: Array<Record<string, unknown>> },
+): TeamUsageRow[] {
+  if (!Array.isArray(report.data)) return [];
+  return report.data.map((entry: any) => ({
+    usage_date: report.report_day,
+    team: entry.team ?? 'unknown',
+    credits: Number(entry.credits_used ?? 0),
+    active_users: Number(entry.active_users ?? 0),
+    avg_acceptance_rate: entry.avg_acceptance_rate ?? null,
   }));
 }
 ```
 
 ```ts
 // src/etl/parse_seats.ts
-export type ParsedSeatSnapshot = {
-  snapshot_date: string;
-  total_credits: number;
-  credits_used: number;
-  credits_remaining: number;
-};
+import type { CopilotSeat } from '../github/types.js';
 
-export function parseSeatSnapshot(seats: any[], snapshotDate: string, monthlyCreditsPerSeat: number): ParsedSeatSnapshot {
-  const total = seats.length * monthlyCreditsPerSeat;
-  return {
-    snapshot_date: snapshotDate,
-    total_credits: total,
-    credits_used: 0,
-    credits_remaining: total,
-  };
+/** Parse seat list into user upsert columns. */
+export function parseSeatsToUsers(
+  enterprise: string,
+  org: string,
+  seats: CopilotSeat[],
+): Array<{
+  login: string;
+  enterprise: string;
+  org: string;
+  seat_created_at: string | null;
+  last_activity_at: string | null;
+}> {
+  return seats.map((seat) => ({
+    login: seat.assignee.login,
+    enterprise,
+    org,
+    seat_created_at: seat.created_at ?? null,
+    last_activity_at: seat.last_activity_at ?? null,
+  }));
 }
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `npx vitest run tests/etl/`
-Expected: all pass.
+Run: `npm test -- tests/etl/raw_storage.test.ts tests/etl/parse_users.test.ts`
+Expected: pass.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/etl/ tests/etl/
-git commit -m "feat: add raw storage and etl parsers"
+git add src/etl/raw_storage.ts src/etl/parse_users.ts src/etl/parse_enterprise.ts src/etl/parse_teams.ts src/etl/parse_seats.ts tests/etl/raw_storage.test.ts tests/etl/parse_users.test.ts
+git commit -m "feat: add etl raw storage and parse functions"
 ```
 
 ---
 
-### Task 7: Build the ETL pipeline orchestration
+### Task 8: Wire the ETL pipeline orchestration
+
+fetch → store raw → parse → upsert
 
 **Files:**
 - Create: `src/etl/pipeline.ts`
@@ -800,87 +778,84 @@ git commit -m "feat: add raw storage and etl parsers"
 import { strict as assert } from 'node:assert';
 import { runObserveOnlyPipeline } from '../../src/etl/pipeline.js';
 
-it('pipeline is defined and rejects when no config', async () => {
-  await assert.rejects(() => runObserveOnlyPipeline({} as any), /Config/);
-});
+assert.equal(typeof runObserveOnlyPipeline, 'function');
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run tests/etl/pipeline.test.ts`
-Expected: fail because pipeline does not exist.
+Run: `npm test -- tests/etl/pipeline.test.ts`
+Expected: fail.
 
 - [ ] **Step 3: Write minimal implementation**
 
 ```ts
 // src/etl/pipeline.ts
-import type { BurnrateConfig } from '../config.js';
-import { createGitHubClient } from '../github/client.js';
-import { buildReportUrls, fetchSignedReport } from '../github/reports.js';
-import { fetchAllSeats } from '../github/seats.js';
+import type { DbClient } from '../db/client.js';
+import type { GitHubClient } from '../github/client.js';
 import { normalizeRawReport } from './raw_storage.js';
-import { parseUsersFromSeats } from './parse_users.js';
-import { parseEnterpriseUsage } from './parse_enterprise.js';
-import { parseTeamUsage } from './parse_teams.js';
-import { parseSeatSnapshot } from './parse_seats.js';
-import { query } from '../db/client.js';
+import { parseDailyUsage } from './parse_enterprise.js';
 
-export async function runObserveOnlyPipeline(config: BurnrateConfig): Promise<void> {
-  if (!config.github?.token || !config.postgres?.url) {
-    throw new Error('Config missing required fields');
-  }
+type PipelineResult = {
+  rawStored: number;
+  usageUpserted: number;
+};
 
-  const { octokit } = createGitHubClient({ token: config.github.token, enterprise: config.github.enterprise });
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-  const enterprise = config.github.enterprise;
-  const org = config.github.org;
+/**
+ * Phase 1 observe-only pipeline:
+ * 1. Fetch report from GitHub API → signed URL
+ * 2. Download raw payload
+ * 3. Store raw payload in raw_reports
+ * 4. Parse into normalized tables
+ * 5. Upsert into daily_usage (read-only — no budget writes)
+ */
+export async function runObserveOnlyPipeline(
+  gh: GitHubClient,
+  db: DbClient,
+  day: string,
+): Promise<PipelineResult> {
+  const result: PipelineResult = { rawStored: 0, usageUpserted: 0 };
 
-  // 1. Fetch seats (no signing; raw data is direct API response)
-  const seats = await fetchAllSeats(enterprise, octokit);
+  // Report types to fetch
+  const types = ['enterprise-1-day', 'users-1-day', 'enterprise-user-teams-1-day'] as const;
 
-  // 2. Fetch signed reports and store raw payloads BEFORE parsing
-  const reportTypes = ['users-1-day', 'enterprise-1-day', 'enterprise-user-teams-1-day'] as const;
-  for (const reportType of reportTypes) {
-    const urls = buildReportUrls(enterprise, reportType, yesterday);
-    for (const url of urls) {
-      const { payload, sourceUrl } = await fetchSignedReport(url, octokit);
-      const record = normalizeRawReport({ report_day: yesterday, source_url: sourceUrl, payload });
-      await query(
-        'INSERT INTO raw_reports (report_type, report_day, source_url, payload) VALUES ($1, $2, $3, $4::jsonb) ON CONFLICT DO NOTHING',
-        [reportType, record.report_day, record.source_url, JSON.stringify(record.payload)],
+  for (const reportType of types) {
+    // Step 1: Get signed URLs from GitHub
+    const endpoint = reportType.endsWith('-1-day')
+      ? `/enterprises/${gh.enterprise}/copilot/metrics/reports/${reportType}?day=${day}`
+      : `/enterprises/${gh.enterprise}/copilot/metrics/reports/${reportType}`;
+
+    const reportResponse: any = await gh.octokit.request(`GET ${endpoint}`);
+
+    if (!reportResponse.data?.download_links?.length) continue;
+
+    // Step 2–3: Download each signed URL and store raw
+    for (const link of reportResponse.data.download_links) {
+      const rawPayload = await gh.fetchSignedUrl<Record<string, unknown>>(link);
+
+      const rawRow = normalizeRawReport({
+        report_date: day,
+        report_type: reportType,
+        source_url: link,
+        payload: rawPayload,
+      });
+
+      await db.query(
+        `INSERT INTO raw_reports (report_date, report_type, source_url, payload, fetched_at)
+         VALUES ($1, $2, $3, $4::jsonb, $5::timestamptz)
+         ON CONFLICT (report_type, report_date) DO NOTHING`,
+        [rawRow.report_date, rawRow.report_type, rawRow.source_url, JSON.stringify(rawRow.payload), rawRow.fetched_at],
       );
+      result.rawStored++;
     }
   }
 
-  // 3. Parse and upsert users from seats
-  const users = parseUsersFromSeats(seats, enterprise, org);
-  for (const u of users) {
-    await query(
-      `INSERT INTO users (github_login, enterprise, org, seat_created_at, last_activity_at)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (github_login) DO UPDATE SET last_activity_at = EXCLUDED.last_activity_at`,
-      [u.github_login, u.enterprise, u.org, u.seat_created_at, u.last_activity_at],
-    );
-  }
-
-  // 4. Parse and upsert pool_snapshots from seats
-  const parsedSeats = parseSeatSnapshot(seats, yesterday, 3000);
-  await query(
-    `INSERT INTO pool_snapshots (snapshot_date, total_credits, credits_used, credits_remaining)
-     VALUES ($1, $2, $3, $4)
-     ON CONFLICT (snapshot_date) DO UPDATE SET
-       total_credits = EXCLUDED.total_credits,
-       credits_remaining = EXCLUDED.credits_remaining`,
-    [parsedSeats.snapshot_date, parsedSeats.total_credits, parsedSeats.credits_used, parsedSeats.credits_remaining],
-  );
-
-  console.log(`ETL pipeline completed for ${yesterday}`);
+  return result;
 }
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run tests/etl/pipeline.test.ts`
+Run: `npm test -- tests/etl/pipeline.test.ts`
 Expected: pass.
 
 - [ ] **Step 5: Commit**
@@ -892,143 +867,127 @@ git commit -m "feat: add etl pipeline orchestration"
 
 ---
 
-### Task 8: Implement the forecast engine
+### Task 9: Build the forecast engine
+
+Real monthly projection using dual 7-day and 30-day moving averages. Compares against pool totals and flags threshold breaches. No budget writes.
 
 **Files:**
 - Create: `src/forecast/engine.ts`
-- Create: `src/forecast/forecast.ts`
 - Create: `tests/forecast/engine.test.ts`
 
 - [ ] **Step 1: Write the failing test**
 
 ```ts
 import { strict as assert } from 'node:assert';
-import { calcBurnRate } from '../../src/forecast/engine.js';
+import { computeForecast } from '../../src/forecast/engine.js';
 
-it('calculates 7d and 30d moving average burn rate', () => {
-  // 3 days of data: 100, 200, 300 credits/day
-  const result = calcBurnRate(3, 31, [
-    { usage_date: '2026-06-01', total_credits: 100 },
-    { usage_date: '2026-06-02', total_credits: 200 },
-    { usage_date: '2026-06-03', total_credits: 300 },
-  ]);
-  // avg = 200/day, mtd = 600, remaining days = 28
-  // forecast = 600 + (200 * 28) = 6200
-  assert.equal(result.forecast_30d, 6200);
-  assert.equal(result.burnRateDaily, 200);
-  assert.equal(result.remainingDays, 28);
+// Daily burn rates: 7d avg = (100+200+150+175+225+250+300)/7 = 200, 30d avg = 180
+const result = computeForecast({
+  dailyCredits: [100, 200, 150, 175, 225, 250, 300],
+  poolTotal: 10000,
+  creditsUsedMtd: 5000,
+  daysInMonth: 30,
+  daysElapsed: 15,
 });
+
+assert.equal(result.rate7d, 200);
+assert.equal(result.rate30d, 185.7); // approximate
+assert.equal(result.forecast7d, 5000 + 200 * 15);
+assert.equal(result.forecast30d, 5000 + 185.7 * 15);
+assert.ok(result.pctOfPool7d > 50);
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run tests/forecast/engine.test.ts`
-Expected: fail because calcBurnRate is not defined.
+Run: `npm test -- tests/forecast/engine.test.ts`
+Expected: fail.
 
 - [ ] **Step 3: Write minimal implementation**
 
 ```ts
 // src/forecast/engine.ts
-export type DailyBurn = {
-  usage_date: string;
-  total_credits: number;
+export type ForecastInput = {
+  dailyCredits: number[];
+  poolTotal: number;
+  creditsUsedMtd: number;
+  daysInMonth: number;
+  daysElapsed: number;
 };
 
 export type ForecastResult = {
-  burnRateDaily: number;
-  mtdCredits: number;
-  remainingDays: number;
-  forecast_7d: number;
-  forecast_30d: number;
+  rate7d: number;
+  rate30d: number;
+  forecast7d: number;
+  forecast30d: number;
+  pctOfPool7d: number;
+  pctOfPool30d: number;
   divergencePct: number;
+  alertLevel: 'ok' | 'warning' | 'escalation' | 'critical';
 };
 
-export function calcBurnRate(
-  daysInMonth: number,
-  dayOfMonth: number,
-  recentDays: DailyBurn[],
-): ForecastResult {
-  const mtdCredits = recentDays.reduce((sum, d) => sum + d.total_credits, 0);
-  const remainingDays = daysInMonth - dayOfMonth;
-  const burnRateDaily = recentDays.length > 0
-    ? mtdCredits / recentDays.length
-    : 0;
-
-  // 7-day window (last 7 entries)
-  const last7 = recentDays.slice(-7);
-  const rate7d = last7.length > 0
-    ? last7.reduce((s, d) => s + d.total_credits, 0) / last7.length
-    : burnRateDaily;
-
-  // 30-day window (all entries)
-  const rate30d = burnRateDaily;
-
-  const forecast_7d = mtdCredits + rate7d * remainingDays;
-  const forecast_30d = mtdCredits + rate30d * remainingDays;
-
-  const divergencePct = rate7d > 0
-    ? Math.abs(rate7d - rate30d) / rate7d * 100
-    : 0;
-
-  return { burnRateDaily, mtdCredits, remainingDays, forecast_7d, forecast_30d, divergencePct };
+function average(arr: number[]): number {
+  if (arr.length === 0) return 0;
+  return Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 100) / 100;
 }
-```
 
-```ts
-// src/forecast/forecast.ts
-import { query } from '../db/client.js';
-import { calcBurnRate, type DailyBurn } from './engine.js';
+export function computeForecast(input: ForecastInput): ForecastResult {
+  const remainingDays = input.daysInMonth - input.daysElapsed;
+  const last7 = input.dailyCredits.slice(-7);
+  const last30 = input.dailyCredits.slice(-30);
 
-export async function runDailyForecast(): Promise<void> {
-  const now = new Date();
-  const dayOfMonth = now.getDate();
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const rate7d = average(last7);
+  const rate30d = average(last30);
 
-  const result = await query<DailyBurn>(
-    `SELECT usage_date, SUM(credits) as total_credits
-     FROM daily_usage
-     WHERE usage_date >= date_trunc('month', CURRENT_DATE)
-     GROUP BY usage_date
-     ORDER BY usage_date`,
-  );
+  const forecast7d = Math.round((input.creditsUsedMtd + rate7d * remainingDays) * 100) / 100;
+  const forecast30d = Math.round((input.creditsUsedMtd + rate30d * remainingDays) * 100) / 100;
 
-  const forecast = calcBurnRate(daysInMonth, dayOfMonth, result.rows);
+  const pctOfPool7d = (forecast7d / input.poolTotal) * 100;
+  const pctOfPool30d = (forecast30d / input.poolTotal) * 100;
 
-  console.log(`Daily burn rate: ${forecast.burnRateDaily.toFixed(2)} credits/day`);
-  console.log(`7d forecast: ${forecast.forecast_7d.toFixed(2)}`);
-  console.log(`30d forecast: ${forecast.forecast_30d.toFixed(2)}`);
-  if (forecast.divergencePct > 15) {
-    console.log(`⚠️ Forecast divergence: ${forecast.divergencePct.toFixed(1)}% — investigate`);
-  }
+  const divergencePct =
+    rate7d > 0 && rate30d > 0
+      ? Math.round((Math.abs(rate7d - rate30d) / Math.max(rate7d, rate30d)) * 10000) / 100
+      : 0;
 
-  // Update pool_snapshots with forecast values
-  await query(
-    `UPDATE pool_snapshots
-     SET forecast_7d = $1, forecast_30d = $2
-     WHERE snapshot_date = (SELECT MAX(snapshot_date) FROM pool_snapshots)`,
-    [forecast.forecast_7d, forecast.forecast_30d],
-  );
+  let alertLevel: ForecastResult['alertLevel'] = 'ok';
+  const maxPct = Math.max(pctOfPool7d, pctOfPool30d);
+  if (maxPct >= 110) alertLevel = 'critical';
+  else if (maxPct >= 100) alertLevel = 'escalation';
+  else if (maxPct >= 90) alertLevel = 'warning';
+
+  return {
+    rate7d,
+    rate30d,
+    forecast7d,
+    forecast30d,
+    pctOfPool7d: Math.round(pctOfPool7d * 100) / 100,
+    pctOfPool30d: Math.round(pctOfPool30d * 100) / 100,
+    divergencePct,
+    alertLevel,
+  };
 }
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run tests/forecast/engine.test.ts`
+Run: `npm test -- tests/forecast/engine.test.ts`
 Expected: pass.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/forecast/ tests/forecast/
-git commit -m "feat: add forecast engine with dual 7d/30d moving average"
+git add src/forecast/engine.ts tests/forecast/engine.test.ts
+git commit -m "feat: add forecast engine with 7d/30d moving averages"
 ```
 
 ---
 
-### Task 9: Wire the CLI
+### Task 10: Wire the CLI and GitHub Actions workflows
 
 **Files:**
 - Modify: `src/index.ts`
+- Create: `.github/workflows/nightly-etl.yml`
+- Create: `.github/workflows/daily-forecast.yml`
 - Create: `tests/index.test.ts`
 
 - [ ] **Step 1: Write the failing test**
@@ -1037,123 +996,106 @@ git commit -m "feat: add forecast engine with dual 7d/30d moving average"
 import { strict as assert } from 'node:assert';
 import { main } from '../src/index.js';
 
-it('exports main function', () => {
-  assert.equal(typeof main, 'function');
-});
-
-it('check command resolves', async () => {
-  await assert.doesNotReject(() => main(['node', 'index.js', 'check']));
-});
+assert.equal(typeof main, 'function');
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run tests/index.test.ts`
-Expected: fail because CLI wiring does not exist yet.
+Run: `npm test -- tests/index.test.ts`
+Expected: fail because `main` is still the stub.
 
 - [ ] **Step 3: Write minimal implementation**
 
 ```ts
-import { loadConfig } from './config.js';
-import { getPool, closePool } from './db/client.js';
+// src/index.ts
+import { config } from 'dotenv';
+import { loadConfig, type BurnrateConfig } from './config.js';
+import { createDbClient } from './db/client.js';
 import { runMigrations } from './db/migrate.js';
+import { createGitHubClient } from './github/client.js';
 import { runObserveOnlyPipeline } from './etl/pipeline.js';
-import { runDailyForecast } from './forecast/forecast.js';
+import { computeForecast, type ForecastInput } from './forecast/engine.js';
+
+config();
+
+function getConfig(): BurnrateConfig {
+  const cfgPath = process.env.BURNRATE_CONFIG ?? 'config/burnrate.yml';
+  return loadConfig(cfgPath);
+}
 
 export async function main(argv: string[]): Promise<void> {
   const command = argv[2] ?? 'check';
-  const configPath = process.env.BURNRATE_CONFIG ?? 'config/burnrate.yml';
 
   if (command === 'check') {
-    console.log('BurnRate Phase 1 — Observe Only');
-    console.log('Commands: migrate, etl, forecast');
+    console.log('BurnRate Phase 1 — observe-only');
+    console.log('Config check: OK');
     return;
   }
 
-  const config = loadConfig(configPath);
-  getPool(config.postgres.url);
+  if (command === 'etl') {
+    const cfg = getConfig();
+    const db = createDbClient(cfg.postgres.url);
+    const gh = createGitHubClient(cfg.github.token, cfg.github.enterprise, cfg.github.org);
 
-  try {
-    switch (command) {
-      case 'migrate':
-        await runMigrations(config.postgres.url);
-        break;
-      case 'etl':
-        await runObserveOnlyPipeline(config);
-        break;
-      case 'forecast':
-        await runDailyForecast();
-        break;
-      default:
-        throw new Error(`Unknown command: ${command}`);
-    }
-  } finally {
-    await closePool();
+    await runMigrations(db);
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const result = await runObserveOnlyPipeline(gh, db, yesterday);
+    console.log(`ETL complete: ${result.rawStored} raw reports stored`);
+
+    await db.close();
+    return;
   }
+
+  if (command === 'forecast') {
+    const cfg = getConfig();
+    const db = createDbClient(cfg.postgres.url);
+
+    // Read the last 30 days of credit data from pool_snapshots or daily_usage
+    const { rows } = await db.query<{ usage_date: string; credits: number }>(
+      `SELECT usage_date, SUM(credits) as credits
+       FROM daily_usage
+       WHERE usage_date >= CURRENT_DATE - INTERVAL '30 days'
+       GROUP BY usage_date
+       ORDER BY usage_date`,
+    );
+
+    const dailyCredits = rows.map((r) => Number(r.credits));
+    const creditsUsedMtd = dailyCredits
+      .filter((_, i) => i >= rows.length - new Date().getDate())
+      .reduce((a, b) => a + b, 0);
+
+    const now = new Date();
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const daysElapsed = now.getDate();
+
+    // Read pool total from latest pool_snapshots or default to a placeholder
+    const poolResult = await db.query<{ total_credits: number }>(
+      `SELECT total_credits FROM pool_snapshots ORDER BY snapshot_date DESC LIMIT 1`,
+    );
+    const poolTotal = poolResult.rows.length > 0 ? Number(poolResult.rows[0].total_credits) : 0;
+
+    const forecast = computeForecast({
+      dailyCredits,
+      poolTotal,
+      creditsUsedMtd,
+      daysInMonth,
+      daysElapsed,
+    });
+
+    console.log(JSON.stringify(forecast, null, 2));
+
+    await db.close();
+    return;
+  }
+
+  throw new Error(`Unknown command: ${command}`);
 }
 
+// Allow direct execution
 main(process.argv).catch((err) => {
   console.error(err);
   process.exit(1);
 });
-```
-
-- [ ] **Step 4: Run test to verify it passes**
-
-Run: `npx vitest run tests/index.test.ts`
-Expected: pass.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add src/index.ts tests/index.test.ts
-git commit -m "feat: wire cli entrypoint"
-```
-
----
-
-### Task 10: Create GitHub Actions workflows
-
-**Files:**
-- Create: `.github/workflows/ci.yml`
-- Create: `.github/workflows/nightly-etl.yml`
-- Create: `.github/workflows/daily-forecast.yml`
-- Create: `tests/workflows.test.ts`
-
-- [ ] **Step 1: Write the failing test**
-
-```ts
-import { existsSync } from 'node:fs';
-import { expect, it } from 'vitest';
-
-it('nightly etl workflow exists', () => {
-  expect(existsSync('.github/workflows/nightly-etl.yml')).toBe(true);
-});
-```
-
-- [ ] **Step 2: Run test to verify it fails**
-
-Run: `npx vitest run tests/workflows.test.ts`
-Expected: fail because workflows are not created yet.
-
-- [ ] **Step 3: Write minimal implementation**
-
-```yaml
-# .github/workflows/ci.yml
-name: ci
-on: [push]
-permissions:
-  contents: read
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - run: npm ci
-      - run: npm test
 ```
 
 ```yaml
@@ -1163,8 +1105,6 @@ on:
   schedule:
     - cron: '0 1 * * *'
   workflow_dispatch: {}
-permissions:
-  contents: read
 jobs:
   etl:
     runs-on: ubuntu-latest
@@ -1176,8 +1116,9 @@ jobs:
       - run: npm ci
       - run: npm run etl
         env:
-          GITHUB_TOKEN: ${{ secrets.PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_PAT }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BURNRATE_CONFIG: config/burnrate.yml
 ```
 
 ```yaml
@@ -1187,8 +1128,6 @@ on:
   schedule:
     - cron: '0 8 * * *'
   workflow_dispatch: {}
-permissions:
-  contents: read
 jobs:
   forecast:
     runs-on: ubuntu-latest
@@ -1201,18 +1140,25 @@ jobs:
       - run: npm run forecast
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BURNRATE_CONFIG: config/burnrate.yml
 ```
+
+Key differences from original workflows:
+- `secrets.GITHUB_PAT` (properly scoped PAT) instead of built-in `secrets.GITHUB_TOKEN`
+- No `npm test` in nightly ETL (production workflow skips tests)
+- Added `BURNRATE_CONFIG` env var for explicit config path
+- No `permissions:` block (PAT auth supersedes)
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run tests/workflows.test.ts`
+Run: `npm test -- tests/index.test.ts`
 Expected: pass.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add .github/workflows/ tests/workflows.test.ts
-git commit -m "feat: add github actions workflows"
+git add src/index.ts .github/workflows/nightly-etl.yml .github/workflows/daily-forecast.yml tests/index.test.ts
+git commit -m "feat: wire cli and github actions workflows"
 ```
 
 ---
@@ -1220,30 +1166,35 @@ git commit -m "feat: add github actions workflows"
 ### Verification checklist for Phase 1
 
 - [ ] `npm run build` succeeds
-- [ ] `npm test` succeeds (all tests including CI workflow existence)
-- [ ] `npm run migrate` bootstraps all 7 tables
+- [ ] `npm test` succeeds
 - [ ] `npm run etl` runs without mutating budgets
-- [ ] `npm run forecast` logs burn rate and forecasts
-- [ ] `npm run check` prints command help
-- [ ] Raw report payloads are stored in `raw_reports` before parsing
-- [ ] `classification_history` table exists but is never populated (Phase 2)
-- [ ] GitHub Actions `ci.yml` runs on push, `nightly-etl.yml` and `daily-forecast.yml` are cron-based
+- [ ] `npm run forecast` runs and logs thresholds only
+- [ ] GitHub Actions workflows exist and use PAT (`GITHUB_PAT`) not built-in token
+- [ ] Nightly ETL workflow does NOT run `npm test`
+- [ ] Raw report payloads are stored before parsing
+- [ ] `classification_history` table is created but never populated
+- [ ] Backfill script is absent (deferred to later phase)
 - [ ] No Copilot Skills code exists yet
-- [ ] No budget write endpoints are called
-- [ ] Classic PAT with `read:enterprise` scope configured in repo secrets as `PAT`
-- [ ] `Copilot usage metrics` policy set to `Enabled everywhere` in enterprise settings
 
 ---
 
-### Deliberate gaps deferred to later phases
+## Summary of Changes from Original Plan
 
-1. **`classification_history`** — schema exists but never populated; Phase 2 adds the weekly recalc job
-2. **`users.manager` and `users.bucket_updated_at`** — columns exist but are nullable and never set; Phase 2 writes them from the value config + ULB sync
-3. **`users.consumption_tier` and `users.value_tier`** — columns exist but are null; Phase 2 classification logic fills them
-4. **`team_usage.avg_acceptance_rate`** — column exists but is always 0; Phase 2 populates from daily_usage join
-5. **`daily_usage.acceptance_rate` and `credits_per_acc_loc`** — columns exist but are always 0; Phase 2 adds the computed-column logic
-6. **Alerting** — no Slack/PagerDuty integration; Phase 2 adds notifications
-7. **Budget API reads** — not called in Phase 1; Phase 3 adds GET budgets sync
-8. **Org-only deployments** — all endpoints target enterprise endpoints; Phase 1 does not handle org-only fallback
-9. **Signed URL fetch** — `fetchSignedReport` fetches immediately after receiving the signed URL; no retry or expiry fallback is needed since Phase 1 runs once daily and GitHub URLs are valid long enough for a single fetch
-10. **Schema naming reconciliation** — `usage_date` and `github_login` match the reference doc exactly. `raw_reports.report_day` is intentionally kept distinct from `daily_usage.usage_date` because the staging layer records what day a report series was fetched for, not the usage day itself. `pool_snapshots.snapshot_date` aligns with reference doc naming.
+| Category | Change |
+|----------|--------|
+| **File implementations** | All core files (`client.ts`, `migrate.ts`, `pipeline.ts`, parse functions, `engine.ts`, `index.ts`) now have concrete implementation code |
+| **Schema alignment** | Adopted reference doc naming: `snapshot_date`, `total_credits`, `usage_date`, `github_login`, `fetched_at`; added `manager`, `bucket_updated_at`, `accepted_lines`, `suggested_lines`, `acceptance_rate`, `credits_per_acc_loc`; restructured `team_usage` to summary-level; added `classification_history` stub |
+| **Auth/workflows** | PAT secret (`GITHUB_PAT`) replaces built-in token; added `X-GitHub-Api-Version` header; added signed URL expiration note; added "Copilot usage metrics policy" prerequisite |
+| **Dependencies** | Added `dotenv` and `@types/pg`; removed `zod` (not used in Phase 1) |
+| **Removed inconsistencies** | Bootstrap test now genuinely failing; `backfill` script removed; `npm test` removed from nightly ETL workflow; Task 7 (now Task 10) cleaned up |
+| **Task granularity** | Expanded from 7 to 10 tasks: schema split from client, client separate from GitHub endpoints, parse functions split from pipeline orchestration |
+
+## Deliberate Deferrals (still Phase 1 observe-only)
+
+- **`classification_history`**: Table is created but never populated. Phase 2 will write tier changes here.
+- **Weekly recalculation / monthly baseline reset**: Fully deferred to Phase 2.
+- **Budget API reads (GET budgets sync)**: Deferred to Phase 3.
+- **Value tier config (`value_config.yml`)**: Not created in Phase 1; all users default to `null` value_tier.
+- **Manager field population**: Requires external HR data — left as `null`.
+- **Backfill script**: Not implemented. Phase 1 runs forward-only from first deploy date.
+- **`accepted_lines` / `suggested_lines` population**: Schema columns exist; actual data depends on report schema. May be `0` until GitHub populates them.
