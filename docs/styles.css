@@ -87,7 +87,7 @@ button {
   top: 0;
   z-index: 50;
   border-bottom: 1px solid rgba(35, 37, 42, 0.8);
-  background: rgb(1 1 2 / 0.96);
+  background: rgba(1, 1, 2, 0.96);
 }
 
 .header-inner {
@@ -503,21 +503,47 @@ code {
 
 .table th,
 .table td {
-  padding: 0.85rem 0;
-  border-bottom: 1px solid rgba(35, 37, 42, 0.75);
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--hairline);
   text-align: left;
-  vertical-align: top;
+  vertical-align: middle;
 }
 
 .table th {
-  color: var(--ink);
-  font-size: 0.875rem;
+  color: var(--ink-subtle);
+  font-size: 0.75rem;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-bottom: 1px solid var(--hairline-strong);
 }
 
-.table td code,
-.table th code {
+.table tbody tr {
+  transition: background-color var(--transition-fast);
+}
+
+.table tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.table tbody tr:hover td:first-child {
+  border-top-left-radius: var(--radius-sm);
+  border-bottom-left-radius: var(--radius-sm);
+}
+
+.table tbody tr:hover td:last-child {
+  border-top-right-radius: var(--radius-sm);
+  border-bottom-right-radius: var(--radius-sm);
+}
+
+.table td code {
   color: var(--ink);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Consolas, monospace;
 }
 
 .table tr:last-child td {
@@ -525,8 +551,7 @@ code {
 }
 
 .table-commands td:first-child {
-  width: 40%;
-  color: var(--ink);
+  width: 35%;
 }
 
 .site-footer {
