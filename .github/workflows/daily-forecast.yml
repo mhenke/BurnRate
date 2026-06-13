@@ -1,0 +1,18 @@
+name: daily-forecast
+on:
+  schedule:
+    - cron: '0 8 * * *'
+  workflow_dispatch: {}
+jobs:
+  forecast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npm run forecast
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BURNRATE_CONFIG: config/burnrate.yml
