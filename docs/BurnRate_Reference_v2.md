@@ -820,9 +820,9 @@ Prerequisites:
 
 Minimal local dev setup:
 
-1\. Clone the repository and copy config/burnrate.sample.yml to config/burnrate.yml
+1\. Clone the repository (optionally copy config/burnrate.sample.yml to config/burnrate.yml if using file-based config)
 
-2\. Set GITHUB_TOKEN, GITHUB_ENTERPRISE, and GITHUB_ORG in your environment or .env file
+2\. Set GITHUB_TOKEN, GITHUB_ENTERPRISE, GITHUB_ORG, and DATABASE_URL in your environment or .env file
 
 3\. Run \'docker compose up -d db\' to start the database (or connect to an existing instance)
 
