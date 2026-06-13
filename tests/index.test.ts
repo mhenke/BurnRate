@@ -87,6 +87,45 @@ describe('CLI entrypoint', () => {
     logSpy.mockRestore();
   });
 
+  it('runs the forecast command and aligns daysElapsed with the last available record date', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-15T12:00:00Z'));
+
+    const loadConfigSpy = vi.spyOn(configModule, 'loadConfig').mockReturnValue({
+      github: { enterprise: 'acme', org: 'acme-inc', token: 'fake' },
+      postgres: { url: ':memory:' }
+    });
+
+    const db = initDb(':memory:');
+    await runMigrations(db);
+
+    const initDbSpy = vi.spyOn(dbClientModule, 'initDb').mockReturnValue(db);
+
+    await db.run(sql`INSERT INTO daily_usage (usage_date, github_login, credits) VALUES ('2026-06-12', 'jdoe', '100')`);
+    await db.run(sql`INSERT INTO pool_snapshots (snapshot_date, total_credits, credits_used, credits_remaining) VALUES ('2026-06-12', '10000', '5000', '5000')`);
+
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    await main(['node', 'src/index.js', 'forecast']);
+
+    assert.ok(logSpy.mock.calls.length > 0);
+    const printed = JSON.parse(logSpy.mock.calls[0][0]);
+    // The last available record is June 12, so daysElapsed should be 12 instead of 15.
+    // daysInMonth is 30.
+    // remainingDays = 30 - 12 = 18.
+    // creditsUsedMtd = 100.
+    // rate7d = 100.
+    // forecast7d = 100 + 100 * 18 = 1900.
+    assert.equal(printed.forecast7d, 1900);
+
+    await closeDb();
+    initDbSpy.mockRestore();
+    loadConfigSpy.mockRestore();
+    logSpy.mockRestore();
+    vi.useRealTimers();
+  });
+
+
   it('routes the classify command with flags', async () => {
     const loadConfigSpy = vi.spyOn(configModule, 'loadConfig').mockReturnValue({
       github: { enterprise: 'acme', org: 'acme-inc', token: 'fake' },

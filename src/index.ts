@@ -148,7 +148,16 @@ export async function main(argv: string[]): Promise<void> {
       .reduce((sum, r) => sum + Number(r.credits), 0);
 
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const daysElapsed = now.getDate();
+    let daysElapsed = now.getDate();
+    const mtdRows = rows.filter(r => r.usage_date >= firstOfMonth);
+    if (mtdRows.length > 0) {
+      const latestMtdRow = mtdRows[mtdRows.length - 1];
+      const parts = latestMtdRow.usage_date.split('-');
+      if (parts.length === 3) {
+        daysElapsed = parseInt(parts[2], 10);
+      }
+    }
+
 
     const poolRows = await runQuery<{ total_credits: any }>(
       db,
