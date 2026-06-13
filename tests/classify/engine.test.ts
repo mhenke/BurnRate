@@ -137,4 +137,29 @@ describe('classify engine', () => {
     assert.equal(result.stats.changedUsers, 0);
     assert.equal(result.changes.length, 0);
   });
+
+  it('executes classification efficiently under high scale (10,000 users)', () => {
+    const userCount = 10000;
+    const userCredits = Array.from({ length: userCount }, (_, i) => ({
+      githubLogin: `user-${i}`,
+      totalCredits: Math.floor(Math.random() * 1000),
+    }));
+    const currentUsers = userCredits.map(u => ({
+      githubLogin: u.githubLogin,
+      team: 'platform',
+      consumptionTier: null,
+      valueTier: null,
+      bucketUpdatedAt: null,
+    }));
+
+    const start = performance.now();
+    const result = classifyUsers(userCredits, currentUsers, {
+      resolveValueTier: () => 'normal',
+    }, 'scale_test');
+    const duration = performance.now() - start;
+
+    assert.equal(result.stats.totalUsers, userCount);
+    // Ensure classification takes less than 150ms
+    assert.ok(duration < 150, `Scale classification took too long: ${duration.toFixed(2)}ms`);
+  });
 });

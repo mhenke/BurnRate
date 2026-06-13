@@ -40,13 +40,6 @@ export type ClassifyResult = {
   };
 };
 
-function computePercentile(sortedCredits: number[], credits: number): number {
-  if (sortedCredits.length === 0) return 0;
-  // Count users with credits <= this user's credits
-  const count = sortedCredits.filter(c => c <= credits).length;
-  return count / sortedCredits.length;
-}
-
 function assignConsumptionTier(percentile: number): ConsumptionTier {
   if (percentile >= 0.85) return 'extreme';
   if (percentile >= 0.60) return 'high';
@@ -98,12 +91,21 @@ export function classifyUsers(
     return { changes, stats: { totalUsers, changedUsers: changes.length, tierCounts, missingTeamCount } };
   }
 
-  // Compute percentiles
+  // Compute percentiles in O(N log N) + O(N) time
   const sortedCredits = userCredits.map(u => u.totalCredits).sort((a, b) => a - b);
+  const percentileMap = new Map<number, number>();
+  for (let i = 0; i < totalUsers; i++) {
+    const val = sortedCredits[i];
+    // Since it's sorted, the count of elements <= val is the index + 1 of the last occurrence
+    if (i === totalUsers - 1 || sortedCredits[i + 1] !== val) {
+      percentileMap.set(val, (i + 1) / totalUsers);
+    }
+  }
+
   const currentUserMap = new Map(currentUsers.map(u => [u.githubLogin, u]));
 
   for (const uc of userCredits) {
-    const percentile = computePercentile(sortedCredits, uc.totalCredits);
+    const percentile = percentileMap.get(uc.totalCredits) ?? 0;
     const consumptionTier = assignConsumptionTier(percentile);
 
     const current = currentUserMap.get(uc.githubLogin);
