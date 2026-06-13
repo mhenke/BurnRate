@@ -99,7 +99,7 @@ git commit -m "feat: bootstrap burnrate repo"
 - Modify: `src/index.ts`
 - Create: `tests/config.test.ts`
 
-- [~] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { strict as assert } from 'node:assert';
@@ -118,12 +118,12 @@ writeFileSync(
 assert.throws(() => loadConfig(file), /Missing burnrate.yml/);
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm test -- tests/config.test.ts`
 Expected: failure because `loadConfig` is not implemented.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```ts
 import { readFileSync } from 'node:fs';
@@ -159,12 +159,12 @@ postgres:
   url: ${DATABASE_URL}
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npm test -- tests/config.test.ts`
 Expected: pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit** `64e099a`
 
 ```bash
 git add src/config.ts config/burnrate.sample.yml src/index.ts tests/config.test.ts
