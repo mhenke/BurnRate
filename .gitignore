@@ -1,5 +1,45 @@
-node_modules
-dist
-.env
+# Dependency directories
+node_modules/
+
+# Build and distribution
+dist/
+tsconfig.tsbuildinfo
+
+# Debug/execution logs
 *.log
-coverage
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Coverage and test outputs
+coverage/
+.nyc_output/
+.playwright-mcp/
+
+# Local database files (SQLite)
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Environment variables and secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+
+# IDEs and Editors
+.idea/
+.vscode/
+*.swp
+
+# OS metadata
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
