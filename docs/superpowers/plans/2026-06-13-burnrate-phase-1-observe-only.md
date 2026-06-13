@@ -99,7 +99,7 @@ git commit -m "feat: bootstrap burnrate repo"
 - Modify: `src/index.ts`
 - Create: `tests/config.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [~] **Step 1: Write the failing test**
 
 ```ts
 import { strict as assert } from 'node:assert';
