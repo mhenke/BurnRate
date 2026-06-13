@@ -242,88 +242,45 @@ git commit -m "feat: define database schemas using Drizzle ORM"
 - Create: `src/db/migrate.ts`
 - Create: `tests/db/client.test.ts`
 
-- [~] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { strict as assert } from 'node:assert';
-import { createDbClient } from '../../src/db/client.js';
+import { describe, it } from 'vitest';
+import { initDb, getDb, closeDb } from '../../src/db/client.js';
 
-assert.equal(typeof createDbClient, 'function');
+describe('client', () => {
+  it('exports client initialization functions', () => {
+    assert.equal(typeof initDb, 'function');
+    assert.equal(typeof getDb, 'function');
+    assert.equal(typeof closeDb, 'function');
+  });
+});
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
-Run: `npm test -- tests/db/client.test.ts`
+Run: `npx vitest run tests/db/client.test.ts`
 Expected: fail because db client module does not exist.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
-```ts
-// src/db/client.ts
-import pg from 'pg';
+We implement [src/db/client.ts](file:///home/mhenke/Projects/BurnRate/src/db/client.ts) and [src/db/migrate.ts](file:///home/mhenke/Projects/BurnRate/src/db/migrate.ts) with dynamic support for node-postgres and better-sqlite3 using Drizzle ORM:
+* `initDb(connectionString)` initializes the client.
+* `getDb()` returns the database instance.
+* `closeDb()` ends pools and SQLite connections.
+* `runMigrations(db)` applies the DDL statements.
 
-export type DbClient = {
-  query: <T extends pg.QueryResultRow>(sql: string, params?: unknown[]) => Promise<pg.QueryResult<T>>;
-  transaction: <T>(fn: (client: DbClient) => Promise<T>) => Promise<T>;
-  close: () => Promise<void>;
-};
+- [x] **Step 4: Run test to verify it passes**
 
-export function createDbClient(connectionString: string): DbClient {
-  const pool = new pg.Pool({ connectionString, max: 5 });
-
-  async function query<T extends pg.QueryResultRow>(sql: string, params?: unknown[]) {
-    return pool.query<T>(sql, params);
-  }
-
-  async function transaction<T>(fn: (client: DbClient) => Promise<T>): Promise<T> {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      const tx: DbClient = {
-        query: <T extends pg.QueryResultRow>(sql: string, params?: unknown[]) =>
-          client.query<T>(sql, params),
-        transaction,
-        close: () => client.release(),
-      };
-      const result = await fn(tx);
-      await client.query('COMMIT');
-      return result;
-    } catch (e) {
-      await client.query('ROLLBACK');
-      throw e;
-    } finally {
-      client.release();
-    }
-  }
-
-  return { query, transaction, close: () => pool.end() };
-}
-```
-
-```ts
-// src/db/migrate.ts
-import type { DbClient } from './client.js';
-import { schemaStatements } from './schema.js';
-
-export async function runMigrations(db: DbClient): Promise<void> {
-  await db.transaction(async (tx) => {
-    for (const stmt of schemaStatements) {
-      await tx.query(stmt);
-    }
-  });
-}
-```
-
-- [ ] **Step 4: Run test to verify it passes**
-
-Run: `npm test -- tests/db/client.test.ts`
+Run: `npx vitest run tests/db/client.test.ts`
 Expected: pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit** `e80abfa`
 
 ```bash
 git add src/db/client.ts src/db/migrate.ts tests/db/client.test.ts
-git commit -m "feat: add db client and migration runner"
+git commit -m "feat: add db client and migration runner with Drizzle support"
 ```
 
 ---
