@@ -4,7 +4,7 @@ Observe-only GitHub Copilot budget monitoring. Daily ingestion, raw payload stor
 
 ## GitHub Repository Description
 
-Use this description for the GitHub repository about section:
+**Recommended description for the GitHub repository "About" section:**
 
 ```
 Observe-only GitHub Copilot budget monitoring. Daily ingestion, raw payload storage, burn forecasts, and budget alerts, without enforcement or automation.
@@ -15,6 +15,10 @@ Observe-only GitHub Copilot budget monitoring. Daily ingestion, raw payload stor
 ```
 Know your Copilot burn before GitHub does. Observe-only budget monitoring with daily ingestion, forecasts, and alerts.
 ```
+
+**GitHub Pages Site:** https://mhenke.github.io/BurnRate/
+
+**Repository URL:** https://github.com/mhenke/BurnRate
 
 ## Repository Topics
 
