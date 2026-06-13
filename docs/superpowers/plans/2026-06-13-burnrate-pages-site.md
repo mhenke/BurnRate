@@ -17,7 +17,7 @@
 - Create: `docs/styles.css`
 - Create: `docs/main.js`
 
-- [ ] **Step 1: Write the page structure**
+- [x] **Step 1: Write the page structure**
 
 ```html
 <!doctype html>
@@ -103,7 +103,7 @@
 </html>
 ```
 
-- [ ] **Step 2: Apply the design tokens and layout rules**
+- [x] **Step 2: Apply the design tokens and layout rules**
 
 ```css
 :root {
@@ -155,7 +155,7 @@ body {
 }
 ```
 
-- [ ] **Step 3: Add the interactive behaviors**
+- [x] **Step 3: Add the interactive behaviors**
 
 ```js
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -209,7 +209,7 @@ npx vite --host
 
 Expected: the page loads locally, nav links scroll to each section, focus rings are visible, and the hero demo button updates the terminal copy.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docs/index.html docs/styles.css docs/main.js
@@ -221,7 +221,7 @@ git commit -m "feat: add GitHub Pages site shell"
 **Files:**
 - Create: `.github/workflows/pages.yml`
 
-- [ ] **Step 1: Add the Pages workflow**
+- [x] **Step 1: Add the Pages workflow**
 
 ```yaml
 name: Deploy GitHub Pages
@@ -259,7 +259,7 @@ jobs:
         uses: actions/deploy-pages@v4
 ```
 
-- [ ] **Step 2: Verify the workflow shape**
+- [x] **Step 2: Verify the workflow shape**
 
 Run:
 ```bash
@@ -268,7 +268,7 @@ git status --short
 
 Expected: only the new docs files and workflow file are listed.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add .github/workflows/pages.yml
@@ -280,7 +280,7 @@ git commit -m "ci: deploy docs to GitHub Pages"
 **Files:**
 - Modify: `README.md`
 
-- [ ] **Step 1: Add the published site link**
+- [x] **Step 1: Add the published site link**
 
 ```md
 ## Site
@@ -288,7 +288,7 @@ git commit -m "ci: deploy docs to GitHub Pages"
 BurnRate site: https://mhenke.github.io/BurnRate/
 ```
 
-- [ ] **Step 2: Verify links and content**
+- [x] **Step 2: Verify links and content**
 
 Run:
 ```bash
@@ -297,7 +297,7 @@ npm test
 
 Expected: existing tests still pass, and the static site changes do not affect the CLI/runtime code.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add README.md

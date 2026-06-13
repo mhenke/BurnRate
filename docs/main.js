@@ -29,14 +29,17 @@ function setActiveSection(id) {
 if (navToggle && nav) {
   navToggle.addEventListener('click', () => {
     const isOpen = navToggle.getAttribute('aria-expanded') === 'true';
-    navToggle.setAttribute('aria-expanded', String(!isOpen));
-    nav.toggleAttribute('data-open', !isOpen);
+    const nextOpen = !isOpen;
+    navToggle.setAttribute('aria-expanded', String(nextOpen));
+    nav.toggleAttribute('data-open', nextOpen);
+    navToggle.textContent = nextOpen ? 'Close' : 'Menu';
   });
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && navToggle.getAttribute('aria-expanded') === 'true') {
       navToggle.setAttribute('aria-expanded', 'false');
       nav.removeAttribute('data-open');
+      navToggle.textContent = 'Menu';
       navToggle.focus();
     }
   });
@@ -51,6 +54,7 @@ navLinks.forEach((link) => {
     if (window.innerWidth < 900) {
       navToggle.setAttribute('aria-expanded', 'false');
       nav.removeAttribute('data-open');
+      navToggle.textContent = 'Menu';
     }
   });
 });
@@ -71,10 +75,55 @@ const observer = new IntersectionObserver(
 
 sections.forEach((section) => observer.observe(section));
 
+let isDemoRunning = false;
+
 if (demoRun && demoOutput) {
   demoRun.addEventListener('click', () => {
+    if (isDemoRunning) return;
+    isDemoRunning = true;
+    demoRun.disabled = true;
+    demoRun.style.opacity = '0.5';
+    demoRun.style.cursor = 'not-allowed';
+
     sampleIndex = (sampleIndex + 1) % samples.length;
-    demoOutput.textContent = samples[sampleIndex];
+    const fullText = samples[sampleIndex];
+    const lines = fullText.split('\n');
+    demoOutput.textContent = '';
+
+    let currentLine = 0;
+    
+    function printNextLine() {
+      if (currentLine < lines.length) {
+        const line = lines[currentLine];
+        if (currentLine === 0) {
+          // The command itself: type it out character by character
+          let charIndex = 0;
+          const interval = window.setInterval(() => {
+            if (charIndex < line.length) {
+              demoOutput.textContent += line[charIndex];
+              charIndex++;
+            } else {
+              window.clearInterval(interval);
+              demoOutput.textContent += '\n';
+              currentLine++;
+              window.setTimeout(printNextLine, 300); // pause after command
+            }
+          }, prefersReducedMotion ? 1 : 40);
+        } else {
+          // Output lines: render them line by line with a small delay
+          demoOutput.textContent += line + '\n';
+          currentLine++;
+          window.setTimeout(printNextLine, prefersReducedMotion ? 1 : 200);
+        }
+      } else {
+        isDemoRunning = false;
+        demoRun.disabled = false;
+        demoRun.style.opacity = '';
+        demoRun.style.cursor = '';
+      }
+    }
+
+    printNextLine();
   });
 }
 

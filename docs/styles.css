@@ -86,8 +86,10 @@ button {
   position: sticky;
   top: 0;
   z-index: 50;
-  border-bottom: 1px solid rgba(35, 37, 42, 0.8);
-  background: rgba(1, 1, 2, 0.96);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(1, 1, 2, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .header-inner {
@@ -111,7 +113,7 @@ button {
   height: 2rem;
   display: grid;
   place-items: center;
-  border-radius: var(--radius-sm);
+  border-radius: 50%;
   background: var(--primary);
   color: #fff;
   font-size: 0.95rem;
@@ -169,7 +171,21 @@ button {
 }
 
 .hero {
+  position: relative;
+  overflow: hidden;
   padding-top: 4.5rem;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -20%;
+  left: 30%;
+  width: 60%;
+  height: 60%;
+  background: radial-gradient(circle, rgba(96, 106, 222, 0.15) 0%, rgba(96, 106, 222, 0) 70%);
+  pointer-events: none;
+  z-index: -1;
 }
 
 .hero-grid {
@@ -264,10 +280,12 @@ h3 {
 .button-primary {
   background: var(--primary);
   color: #fff;
+  transition: transform var(--transition-fast), background-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .button-primary:hover {
   background: var(--primary-hover);
+  box-shadow: 0 0 16px rgba(96, 106, 222, 0.4);
 }
 
 .button-secondary {
@@ -518,7 +536,7 @@ code {
   border-bottom: 1px solid var(--hairline-strong);
 }
 
-.table tbody tr {
+.table tbody tr td {
   transition: background-color var(--transition-fast);
 }
 
@@ -608,14 +626,16 @@ section[id] {
     box-shadow: none;
     opacity: 0;
     pointer-events: none;
+    visibility: hidden;
     transform: translateY(-0.35rem);
-    transition: opacity var(--transition-fast), transform var(--transition-fast);
+    transition: opacity var(--transition-fast), transform var(--transition-fast), visibility var(--transition-fast);
   }
 
   .site-nav[data-open='true'] {
     opacity: 1;
     pointer-events: auto;
     transform: translateY(0);
+    visibility: visible;
   }
 
   .header-inner {
@@ -697,4 +717,19 @@ section[id] {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+.card-tip {
+  margin-top: 1rem;
+  font-size: 0.875rem;
+  color: var(--ink-subtle);
+  line-height: 1.4;
+}
+
+.card-tip code {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+  font-family: monospace;
 }
