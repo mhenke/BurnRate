@@ -1,6 +1,6 @@
 # BurnRate
 
-> **Know your Copilot burn before GitHub does.** BurnRate ingests GitHub Copilot usage reports, stores raw payloads for audit history, and produces burn forecasts. No budget writes. No Copilot Skills automation.
+> **Observe-only GitHub Copilot budget monitoring.** Daily ingestion, raw payload storage, burn forecasts, and budget alerts, without enforcement or automation.
 
 **Site:** https://mhenke.github.io/BurnRate/
 
