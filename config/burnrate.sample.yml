@@ -16,3 +16,36 @@ thresholds:
   forecast:
     trendSlope: 0.1
     anomalyZscore: 2.5
+
+# Notification channels (all optional — if omitted, BurnRate runs silent)
+# Each provider has minLevel: 'warning' by default, meaning only
+# warning/escalation/critical alerts are dispatched.
+# Set minLevel: 'ok' to receive all-clear notifications too.
+notifications:
+  renotifyHours: 24      # re-notify if still at same level after N hours
+  escalateDays: 3         # escalate to next level if unresolved after N days
+  providers:
+    # - type: slack
+    #   enabled: true
+    #   webhookUrl: ${SLACK_WEBHOOK_URL}
+    #   channel: '#alerts'
+    #   minLevel: warning
+    # - type: teams
+    #   enabled: true
+    #   webhookUrl: ${TEAMS_WEBHOOK_URL}
+    #   minLevel: warning
+    # - type: outlook
+    #   enabled: true
+    #   tenantId: ${MS365_TENANT_ID}
+    #   clientId: ${MS365_CLIENT_ID}
+    #   clientSecret: ${MS365_CLIENT_SECRET}
+    #   from: burnrate@company.com
+    #   to:
+    #     - platform-ops@company.com
+    #   minLevel: critical
+    # - type: github_issues
+    #   enabled: true
+    #   owner: my-org
+    #   repo: burnrate-alerts
+    #   token: ${GITHUB_TOKEN}
+    #   minLevel: warning

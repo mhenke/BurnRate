@@ -1,202 +1,94 @@
-import type { BudgetReport } from './budget_sync.js';
-import { GITHUB_API_VERSION } from '../github/client.js';
-import * as queries from '../db/queries.js';
 import type { DbClient } from '../db/client.js';
+import type { BudgetReport } from './budget_sync.js';
+import { sanitizeErrorMessage } from '../notifications/sanitize.js';
+import { SlackProvider } from '../notifications/providers/slack.js';
+import { GitHubIssuesProvider } from '../notifications/providers/github_issues.js';
+import type { BurnRateAlert, NotificationResult, NotificationChannel } from '../notifications/types.js';
 
-/**
- * Sanitize error messages before persisting to database.
- * Removes potential secrets like GitHub tokens (ghp_), truncates long bodies.
- */
-export function sanitizeErrorMessage(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error);
-  
-  // Strip GitHub PAT patterns (classic ghp_ etc and fine-grained github_pat_)
-  const sanitized = message
-    .replace(/gh[pousr]_[a-zA-Z0-9]{36,}/g, '[REDACTED]')
-    .replace(/github_pat_[a-zA-Z0-9_]{82}/g, '[REDACTED]');
-  
-  // Truncate very long error bodies (likely API response bodies)
-  if (sanitized.length > 500) {
-    return sanitized.slice(0, 500) + '... (truncated)';
-  }
-  
-  return sanitized;
-}
+export { sanitizeErrorMessage };
+export type { NotificationChannel, NotificationResult };
 
-export type NotificationChannel = 'slack' | 'github_issue';
+export type SlackConfig = { webhookUrl: string; channel?: string; username?: string; };
+export type GitHubIssueConfig = { owner: string; repo: string; token: string; };
 
-export type NotificationResult = {
-  success: boolean;
-  channel: NotificationChannel;
-  externalId?: string;
-  errorMessage?: string;
-};
-
-export type SlackConfig = {
-  webhookUrl: string;
-  channel?: string;
-  username?: string;
-};
-
-export type GitHubIssueConfig = {
-  owner: string;
-  repo: string;
-  token: string;
-};
-
-/**
- * Try to send a notification via the provided HTTP action. Logs outcome
- * to notification_log (success or failure). Returns a structured
- * NotificationResult so callers never need to catch.
- */
-async function sendAndLog(
-  db: DbClient,
-  channel: NotificationChannel,
-  notificationType: string,
-  snapshotDate: string,
-  externalId: string | undefined,
-  payload: unknown,
-  action: () => Promise<{ success: boolean; externalId?: string }>,
-): Promise<NotificationResult> {
-  try {
-    const result = await action();
-    await logNotification(db, {
-      snapshotDate, channel, notificationType,
-      externalId: result.externalId ?? externalId ?? 'default',
-      payload, success: result.success,
-    });
-    return { success: result.success, channel, externalId: result.externalId ?? externalId ?? 'default' };
-  } catch (error) {
-    const errorMessage = sanitizeErrorMessage(error);
-    await logNotification(db, {
-      snapshotDate, channel, notificationType,
-      externalId: externalId ?? 'default',
-      payload, success: false, errorMessage,
-    });
-    return { success: false, channel, errorMessage };
-  }
-}
-
-/**
- * Send a budget alert to a Slack webhook.
- */
 export async function sendSlackNotification(
   db: DbClient,
   config: SlackConfig,
   report: BudgetReport,
   snapshotDate: string,
 ): Promise<NotificationResult> {
-  const payload = {
-    channel: config.channel || '#alerts',
-    username: config.username || 'BurnRate Bot',
-    icon_emoji: ':warning:',
-    attachments: [
-      {
-        color: report.alertLevel === 'critical' ? 'danger' : report.alertLevel === 'warning' ? 'warning' : 'good',
-        title: `Budget Alert: ${report.alertLevel?.toUpperCase()}`,
-        fields: [
-          { title: 'Total Budget', value: `$${report.totalBudget.toFixed(2)}`, short: true },
-          { title: 'Budget Used', value: `$${report.budgetUsed.toFixed(2)}`, short: true },
-          { title: 'Budget Remaining', value: `$${report.budgetRemaining.toFixed(2)}`, short: true },
-          { title: '% Used', value: `${report.pctUsed.toFixed(1)}%`, short: true },
-          { title: '% Elapsed', value: `${report.pctElapsed.toFixed(1)}%`, short: true },
-        ],
-        footer: `BurnRate Alert • ${snapshotDate}`,
-      },
-    ],
-  };
-
-  return sendAndLog(db, 'slack', 'budget_alert', snapshotDate, config.channel || 'default', payload,
-    async () => {
-      const response = await fetch(config.webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(15000),
-      });
-      if (!response.ok) {
-        throw new Error(`Slack webhook returned ${response.status} ${response.statusText}`);
-      }
-      return { success: true, externalId: config.channel };
+  try {
+    const provider = new SlackProvider({
+      type: 'slack',
+      webhookUrl: config.webhookUrl,
+      channel: config.channel,
+      username: config.username,
     });
+
+    const alert: BurnRateAlert = {
+      id: `budget-${snapshotDate}`,
+      timestamp: new Date(),
+      level: (report.alertLevel === 'info' ? 'ok' : report.alertLevel) as BurnRateAlert['level'],
+      persistentDays: 0,
+      type: 'budget',
+      subject: `Budget Alert: ${report.alertLevel.toUpperCase()} - ${snapshotDate}`,
+      body: '',
+      data: {
+        totalBudget: report.totalBudget,
+        budgetUsed: report.budgetUsed,
+        budgetRemaining: report.budgetRemaining,
+        pctUsed: report.pctUsed,
+        pctElapsed: report.pctElapsed,
+        forecast7d: report.forecast7d,
+        forecast30d: report.forecast30d,
+      },
+      tags: ['budget', report.alertLevel],
+    };
+
+    const result = await provider.send(alert);
+    return { channel: 'slack', ...result, externalId: result.externalId ?? config.channel ?? 'default' };
+  } catch (error) {
+    return { success: false, channel: 'slack', errorMessage: sanitizeErrorMessage(error) };
+  }
 }
 
-/**
- * Create or update a GitHub Issue with the current budget alert.
- */
 export async function sendGitHubIssue(
   db: DbClient,
   config: GitHubIssueConfig,
   report: BudgetReport,
   snapshotDate: string,
 ): Promise<NotificationResult> {
-  const title = `[BurnRate] Budget Alert: ${report.alertLevel?.toUpperCase()} - ${snapshotDate}`;
-  const body = `## Budget Status
-
-| Metric | Value |
-|--------|-------|
-| Total Budget | $${report.totalBudget.toFixed(2)} |
-| Budget Used | $${report.budgetUsed.toFixed(2)} |
-| Budget Remaining | $${report.budgetRemaining.toFixed(2)} |
-| % Used | ${report.pctUsed.toFixed(1)}% |
-| % Elapsed | ${report.pctElapsed.toFixed(1)}% |
-| Forecast 7d | $${report.forecast7d?.toFixed(2) ?? 'N/A'} |
-| Forecast 30d | $${report.forecast30d?.toFixed(2) ?? 'N/A'} |
-
-**Alert Level**: ${report.alertLevel?.toUpperCase() || 'INFO'}
-
----
-*Generated by BurnRate on ${snapshotDate}*`;
-
-  const payload = {
-    title,
-    body,
-    labels: ['budget', 'alert', report.alertLevel || 'info'],
-  };
-
-  return sendAndLog(db, 'github_issue', 'budget_alert', snapshotDate, undefined, payload,
-    async () => {
-      const response = await fetch(`https://api.github.com/repos/${config.owner}/${config.repo}/issues`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${config.token}`,
-          'Content-Type': 'application/json',
-          'X-GitHub-Api-Version': GITHUB_API_VERSION,
-          'Accept': 'application/vnd.github+json',
-        },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(15000),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`GitHub API returned ${response.status}: ${sanitizeErrorMessage(errorText)}`);
-      }
-
-      const result = await response.json() as { number: number; html_url: string };
-      return { success: true, externalId: String(result.number) };
+  try {
+    const provider = new GitHubIssuesProvider({
+      type: 'github_issues',
+      owner: config.owner,
+      repo: config.repo,
+      token: config.token,
     });
-}
 
-async function logNotification(
-  db: DbClient,
-  logEntry: {
-    snapshotDate: string;
-    channel: NotificationChannel;
-    notificationType: string;
-    externalId?: string;
-    payload: unknown;
-    success: boolean;
-    errorMessage?: string;
-  },
-): Promise<void> {
-  await queries.insertNotificationLog(db, {
-    snapshotDate: logEntry.snapshotDate,
-    channel: logEntry.channel,
-    notificationType: logEntry.notificationType,
-    externalId: logEntry.externalId || undefined,
-    payload: logEntry.payload,
-    success: logEntry.success,
-    errorMessage: logEntry.errorMessage || undefined,
-  });
+    const alert: BurnRateAlert = {
+      id: `budget-${snapshotDate}`,
+      timestamp: new Date(),
+      level: (report.alertLevel === 'info' ? 'ok' : report.alertLevel) as BurnRateAlert['level'],
+      persistentDays: 0,
+      type: 'budget',
+      subject: `Budget Alert: ${report.alertLevel.toUpperCase()} - ${snapshotDate}`,
+      body: '',
+      data: {
+        totalBudget: report.totalBudget,
+        budgetUsed: report.budgetUsed,
+        budgetRemaining: report.budgetRemaining,
+        pctUsed: report.pctUsed,
+        pctElapsed: report.pctElapsed,
+        forecast7d: report.forecast7d,
+        forecast30d: report.forecast30d,
+      },
+      tags: ['budget', report.alertLevel],
+    };
+
+    const result = await provider.send(alert);
+    return { channel: 'github_issue', ...result };
+  } catch (error) {
+    return { success: false, channel: 'github_issue', errorMessage: sanitizeErrorMessage(error) };
+  }
 }

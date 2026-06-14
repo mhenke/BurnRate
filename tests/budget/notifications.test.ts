@@ -80,7 +80,7 @@ describe('sendSlackNotification', () => {
 
     const result = await sendSlackNotification(db as any, config, mockReport, '2026-06-13');
 
-    assert.equal(result.externalId, 'default');
+    assert.equal(result.externalId, '#alerts');
 
     const body = JSON.parse(mockFetch.mock.calls[0][1]?.body as string);
     assert.equal(body.channel, '#alerts');
@@ -201,8 +201,8 @@ describe('sendGitHubIssue', () => {
     const body = JSON.parse(callArgs[1]?.body as string);
     assert.ok(body.title.includes('[BurnRate]'));
     assert.ok(body.title.includes('WARNING'));
-    assert.ok(body.body.includes('Budget Status'));
-    assert.deepEqual(body.labels, ['budget', 'alert', 'warning']);
+    assert.ok(body.body.includes('Budget Alert'));
+    assert.deepEqual(body.labels, ['alert', 'budget', 'warning']);
 
     vi.unstubAllGlobals();
   });
@@ -239,7 +239,7 @@ describe('sendGitHubIssue', () => {
 
     const body = JSON.parse(mockFetch.mock.calls[0][1]?.body as string);
     assert.ok(body.title.includes('CRITICAL'));
-    assert.deepEqual(body.labels, ['budget', 'alert', 'critical']);
+    assert.deepEqual(body.labels, ['alert', 'budget', 'critical']);
 
     vi.unstubAllGlobals();
   });

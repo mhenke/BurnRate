@@ -7,6 +7,7 @@ import { createGitHubClient } from './github/client.js';
 import { runObserveOnlyPipeline } from './etl/pipeline.js';
 import { computeForecast, buildForecastInput } from './forecast/engine.js';
 import { runClassify } from './classify/runner.js';
+import type { NotificationProviderConfig } from './notifications/types.js';
 import { runBudgetSync } from './budget/budget_sync.js';
 import { daysAgo } from './constants.js';
 import * as queries from './db/queries.js';
@@ -145,13 +146,32 @@ export async function main(argv: string[]): Promise<void> {
     const issueRepoName = process.env.BUDGET_ISSUE_REPO ?? 'burnrate';
     const issueRepoToken = cfg.github.token;
 
+    const notificationProviders: NotificationProviderConfig[] = [];
+
+    if (slackWebhookUrl) {
+      notificationProviders.push({
+        type: 'slack',
+        webhookUrl: slackWebhookUrl,
+      });
+    }
+
+    notificationProviders.push({
+      type: 'github_issues',
+      owner: issueRepoOwner,
+      repo: issueRepoName,
+      token: issueRepoToken,
+    });
+
+    if (cfg.notifications?.providers) {
+      notificationProviders.push(...cfg.notifications.providers);
+    }
+
     const result = await runBudgetSync({
       db,
       github: gh,
-      slackWebhookUrl,
-      issueRepoOwner,
-      issueRepoName,
-      issueRepoToken,
+      notificationProviders,
+      renotifyHours: cfg.notifications?.renotifyHours,
+      escalateDays: cfg.notifications?.escalateDays,
       dryRun,
     });
 
@@ -159,8 +179,7 @@ export async function main(argv: string[]): Promise<void> {
       console.log(JSON.stringify(result, null, 2));
     } else {
       console.log(`Budget sync complete: ${result.snapshotDate} - ${result.alertLevel} (${result.pctUsed.toFixed(1)}% used)`);
-      if (result.slackNotified) console.log('Slack notification sent');
-      if (result.issueNotified) console.log('GitHub issue created');
+      if (result.notificationsDispatched > 0) console.log(`${result.notificationsDispatched} notification(s) sent`);
       if (result.errors.length > 0) console.error('Errors:', result.errors.join(', '));
     }
 

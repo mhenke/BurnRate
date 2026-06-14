@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { parse } from 'yaml';
 import { config as dotenvConfig } from 'dotenv';
 import { expandEnv } from './env.js';
+import type { NotificationProviderConfig, NotificationsConfig } from './notifications/types.js';
 
 dotenvConfig();
 
@@ -21,6 +22,7 @@ export type BurnrateConfig = {
   github: { enterprise?: string; org: string; token: string };
   postgres: { url: string };
   thresholds?: Partial<BurnrateThresholds>;
+  notifications?: NotificationsConfig;
 };
 
 /**

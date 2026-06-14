@@ -159,8 +159,7 @@ describe('CLI entrypoint', () => {
       pctOfBudget7d: 55,
       pctOfBudget30d: 52,
       alertLevel: 'ok',
-      slackNotified: false,
-      issueNotified: false,
+      notificationsDispatched: 0,
       errors: [],
     });
 
