@@ -89,7 +89,7 @@ export async function main(argv: string[]): Promise<void> {
   const command = argv[2] ?? 'check';
 
   if (command === 'check') {
-    console.log('BurnRate Phase 1 — observe-only');
+    console.log('BurnRate — Copilot spend visibility');
     console.log('Config check: OK');
     return;
   }
