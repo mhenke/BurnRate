@@ -15,11 +15,14 @@
     "budget-sync": "tsx src/index.ts budget-sync"
   },
   "dependencies": {
+    "@tidy-ts/dataframe": "^1.5.9",
+    "arima": "^0.2.8",
     "better-sqlite3": "^12.10.0",
     "dotenv": "^16.4.0",
     "drizzle-orm": "^0.45.2",
     "octokit": "^4.0.0",
     "pg": "^8.16.0",
+    "simple-statistics": "^7.9.0",
     "yaml": "^2.8.0"
   },
   "devDependencies": {

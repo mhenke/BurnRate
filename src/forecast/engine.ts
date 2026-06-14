@@ -1,3 +1,7 @@
+import ARIMA from 'arima';
+import * as ss from 'simple-statistics';
+import { createDataFrame, s as tidyStats } from '@tidy-ts/dataframe';
+
 export type ForecastInput = {
   dailyCredits: number[];
   poolTotal: number;
@@ -15,6 +19,12 @@ export type ForecastResult = {
   pctOfPool30d: number;
   divergencePct: number;
   alertLevel: 'ok' | 'warning' | 'escalation' | 'critical';
+  arimaForecast: number[];
+  arimaConfidence: number[];
+  anomalyScore: number;
+  isAnomalous: boolean;
+  trendSlope: number;
+  trendDirection: 'increasing' | 'decreasing' | 'stable';
 };
 
 function average(arr: number[]): number {
@@ -22,20 +32,75 @@ function average(arr: number[]): number {
   return Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 100) / 100;
 }
 
-/**
- * Compute budget burn forecast using moving averages.
- * Calculates both 7-day and 30-day run rates.
- * Calculates MTD (month-to-date) usage, remaining days in the month, and project total usage.
- * Compares projected usage against the total credit pool to detect threshold breaches.
- * 
- * Alert levels:
- * - >= 110% of pool: critical
- * - >= 100% and < 110% of pool: escalation
- * - >= 90% and < 100% of pool: warning
- * - < 90% of pool: ok
- * 
- * @param input The inputs including daily credits list, pool total, days elapsed, days in month, and credits used MTD.
- */
+function computeARIMA(data: number[]): { forecast: number[]; confidence: number[] } {
+  if (data.length < 14) {
+    return { forecast: Array(7).fill(0), confidence: Array(7).fill(0) };
+  }
+
+  try {
+    const model = new ARIMA({
+      p: 2, d: 1, q: 1,
+      P: 1, D: 0, Q: 1, s: 7,
+      verbose: false,
+    }).train(data);
+
+    const [forecast, confidence] = model.predict(7);
+    model.destroy();
+
+    return { forecast, confidence };
+  } catch {
+    return { forecast: Array(7).fill(0), confidence: Array(7).fill(0) };
+  }
+}
+
+function computeAnomalyScore(data: number[]): { score: number; isAnomalous: boolean } {
+  if (data.length < 3) return { score: 0, isAnomalous: false };
+
+  const mean = ss.mean(data);
+  const stddev = ss.standardDeviation(data);
+  if (stddev === 0) return { score: 0, isAnomalous: false };
+
+  const lastValue = data[data.length - 1];
+  const score = Math.abs((lastValue - mean) / stddev);
+
+  return { score: Math.round(score * 100) / 100, isAnomalous: score > 2.5 };
+}
+
+function computeTrend(data: number[]): { slope: number; direction: 'increasing' | 'decreasing' | 'stable' } {
+  if (data.length < 2) return { slope: 0, direction: 'stable' };
+
+  const indexed: Array<[number, number]> = data.map((v, i) => [i, v]);
+  const regression = ss.linearRegression(indexed);
+  const slope = Math.round(regression.m * 100) / 100;
+
+  let direction: 'increasing' | 'decreasing' | 'stable' = 'stable';
+  if (slope > 0.1) direction = 'increasing';
+  else if (slope < -0.1) direction = 'decreasing';
+
+  return { slope, direction };
+}
+
+function prepareDataWithDataFrame(data: number[]): number[] {
+  if (data.length === 0) return [];
+
+  const now = Date.now();
+  const dayMs = 86400000;
+  const rows = data.map((credits, i) => ({
+    date: new Date(now - (data.length - 1 - i) * dayMs).toISOString().slice(0, 10),
+    credits,
+  }));
+
+  const df = createDataFrame(rows);
+  const filled = df.fillForward('credits') as ReturnType<typeof createDataFrame>;
+  const enriched = filled.mutate({
+    rolling_mean_7d: tidyStats.rolling({ column: 'credits', windowSize: 7, fn: tidyStats.mean }),
+    rolling_std_7d: tidyStats.rolling({ column: 'credits', windowSize: 7, fn: tidyStats.stdev }),
+  }) as ReturnType<typeof createDataFrame>;
+
+  const result = enriched.toArray() as unknown as Array<{ credits: number }>;
+  return result.map((r) => r.credits);
+}
+
 export function computeForecast(input: ForecastInput): ForecastResult {
   const remainingDays = input.daysInMonth - input.daysElapsed;
   const last7 = input.dailyCredits.slice(-7);
@@ -61,6 +126,11 @@ export function computeForecast(input: ForecastInput): ForecastResult {
   else if (maxPct >= 100) alertLevel = 'escalation';
   else if (maxPct >= 90) alertLevel = 'warning';
 
+  const prepared = prepareDataWithDataFrame(input.dailyCredits);
+  const arima = computeARIMA(prepared);
+  const anomaly = computeAnomalyScore(input.dailyCredits);
+  const trend = computeTrend(input.dailyCredits);
+
   return {
     rate7d,
     rate30d,
@@ -70,5 +140,11 @@ export function computeForecast(input: ForecastInput): ForecastResult {
     pctOfPool30d: Math.round(pctOfPool30d * 100) / 100,
     divergencePct,
     alertLevel,
+    arimaForecast: arima.forecast,
+    arimaConfidence: arima.confidence,
+    anomalyScore: anomaly.score,
+    isAnomalous: anomaly.isAnomalous,
+    trendSlope: trend.slope,
+    trendDirection: trend.direction,
   };
 }
