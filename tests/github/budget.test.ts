@@ -31,11 +31,7 @@ describe('fetchBilling', () => {
     const result = await fetchBilling(client);
 
     assert.deepEqual(result, {
-      totalBudget: 0,
       budgetUsed: 7500,
-      budgetRemaining: 0,
-      pctUsed: 0,
-      pctElapsed: 0,
     });
 
     assert.equal(octokitMock.request.mock.calls[0][0], 'GET /organizations/{org}/settings/billing/ai_credit/usage');

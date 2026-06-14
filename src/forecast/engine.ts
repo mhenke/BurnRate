@@ -47,6 +47,8 @@ function computeARIMA(data: number[]): { forecast: number[]; confidence: number[
   }
 
   try {
+    // ARIMA(2,1,1) × (1,0,1)[7] SARIMA: accounts for trend (d=1),
+    // short-term dependence (p=2, q=1), and weekly seasonality (s=7).
     const model = new ARIMA({
       p: 2, d: 1, q: 1,
       P: 1, D: 0, Q: 1, s: 7,
@@ -98,9 +100,7 @@ function computeTrend(data: number[], slopeThreshold = 0.1): { slope: number; di
 }
 
 /**
- * Compute burn forecast from daily credit data.
- *
- * Uses three methods in parallel:
+ * Compute burn forecast from daily credit data using three methods:
  * 1. 7-day moving average extrapolation (captures recent spikes)
  * 2. 30-day moving average extrapolation (captures broader trend)
  * 3. SARIMA model with weekly seasonality (accounts for day-of-week patterns)

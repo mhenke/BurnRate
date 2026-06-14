@@ -1,27 +1,17 @@
 import { GITHUB_API_VERSION, type GitHubClient } from './client.js';
 import { withRetry, type RetryOptions } from '../budget/retry.js';
 
-export type BudgetReport = {
-  totalBudget: number;
+export type BudgetBillingData = {
   budgetUsed: number;
-  budgetRemaining: number;
-  pctUsed: number;
-  pctElapsed: number;
-  forecast7d?: number;
-  forecast30d?: number;
-  alertLevel?: 'info' | 'warning' | 'critical';
 };
 
-/**
- * Fetch Copilot AI credit billing data from the GitHub API.
- */
 /**
  * Fetch Copilot AI credit billing data from the GitHub API.
  */
 export async function fetchBilling(
   client: GitHubClient,
   options?: RetryOptions,
-): Promise<BudgetReport> {
+): Promise<BudgetBillingData> {
   return withRetry(async () => {
     const path = client.org
       ? '/organizations/{org}/settings/billing/ai_credit/usage'
@@ -60,12 +50,12 @@ export async function fetchBilling(
       }
     }
 
+    if (budgetUsed === 0) {
+      throw new Error('Budget billing data unavailable — usageItems empty or missing');
+    }
+
     return {
-      totalBudget: 0,
-      budgetUsed: budgetUsed,
-      budgetRemaining: 0,
-      pctUsed: 0,
-      pctElapsed: 0,
+      budgetUsed,
     };
   }, options);
 }

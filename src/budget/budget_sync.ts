@@ -1,9 +1,16 @@
 import type { DbClient } from '../db/client.js';
 import type { GitHubClient } from '../github/client.js';
-import { fetchBilling } from '../github/budget.js';
+import { fetchBilling, type BudgetBillingData } from '../github/budget.js';
 import * as queries from '../db/queries.js';
 import { sendSlackNotification, sendGitHubIssue, sanitizeErrorMessage, type SlackConfig, type GitHubIssueConfig } from './notifications.js';
 import { computeAlertLevel, daysAgo } from '../constants.js';
+
+export type BudgetReport = {
+  totalBudget: number; budgetUsed: number; budgetRemaining: number;
+  pctUsed: number; pctElapsed: number;
+  forecast7d: number | null; forecast30d: number | null;
+  alertLevel: string;
+};
 
 export type BudgetSyncConfig = {
   db: DbClient;
@@ -59,8 +66,8 @@ function buildBudgetReport(snapshot: {
     budgetRemaining: snapshot.budgetRemaining,
     pctUsed: snapshot.pctUsed,
     pctElapsed: snapshot.pctElapsed,
-    forecast7d: snapshot.forecast7d ?? undefined,
-    forecast30d: snapshot.forecast30d ?? undefined,
+    forecast7d: snapshot.forecast7d ?? null,
+    forecast30d: snapshot.forecast30d ?? null,
     alertLevel: level as 'info' | 'warning' | 'critical',
   };
 }
@@ -79,33 +86,27 @@ export async function runBudgetSync(config: BudgetSyncConfig): Promise<BudgetSyn
   
   let slackNotified = false;
   let issueNotified = false;
-  let source: 'api' | 'pool_fallback' = 'api';
   let note: string | null = null;
 
-  let billingReport: { totalBudget: number; budgetUsed: number; pctElapsed: number; forecast7d?: number; forecast30d?: number } | null = null;
+  let billingData: BudgetBillingData | null = null;
   let poolSnapshot: queries.PoolSnapshotRow | null = null;
   
   try {
-    billingReport = await fetchBilling(github, config.fetchOptions);
-    
-    if (billingReport.totalBudget === 0 || billingReport.totalBudget === undefined) {
-      source = 'pool_fallback';
-      note = 'Budget API fields absent';
-    }
+    billingData = await fetchBilling(github, config.fetchOptions);
   } catch (error) {
-    source = 'pool_fallback';
     note = `Budget API error: ${sanitizeErrorMessage(error)}`;
     errors.push(note ?? '');
   }
   
   poolSnapshot = await queries.getLatestPoolSnapshot(db);
   
-  const [totalBudget, budgetUsed, forecast7d, forecast30d] = computeBudgetMetrics(
-    source, billingReport, poolSnapshot,
-  );
+  const budgetUsed = billingData?.budgetUsed ?? parseNumeric(poolSnapshot?.creditsUsed ?? null) ?? 0;
+  const totalBudget = parseNumeric(poolSnapshot?.totalCredits ?? null) ?? 0;
+  const forecast7d = parseNumeric(poolSnapshot?.forecast7d ?? null);
+  const forecast30d = parseNumeric(poolSnapshot?.forecast30d ?? null);
   
   const pctUsed = totalBudget > 0 ? (budgetUsed / totalBudget) * 100 : 0;
-  const pctElapsed = billingReport?.pctElapsed ?? 0;
+  const pctElapsed = 0;
   
   const pctOfBudget7d = forecast7d !== null && totalBudget > 0 ? (forecast7d / totalBudget) * 100 : null;
   const pctOfBudget30d = forecast30d !== null && totalBudget > 0 ? (forecast30d / totalBudget) * 100 : null;
@@ -125,7 +126,7 @@ export async function runBudgetSync(config: BudgetSyncConfig): Promise<BudgetSyn
       pctOfBudget7d,
       pctOfBudget30d,
       alertLevel,
-      source,
+      source: 'api',
       note,
     });
   }
@@ -139,9 +140,10 @@ export async function runBudgetSync(config: BudgetSyncConfig): Promise<BudgetSyn
   const shouldSendNotifications = shouldNotify || shouldNotifyAllClear;
   
   if (shouldSendNotifications && !dryRun) {
+    const report = buildBudgetReport({ totalBudget, budgetUsed, budgetRemaining: totalBudget - budgetUsed, pctUsed, pctElapsed, forecast7d, forecast30d, alertLevel });
+
     if (slackWebhookUrl) {
       const slackConfig: SlackConfig = { webhookUrl: slackWebhookUrl };
-      const report = buildBudgetReport({ totalBudget, budgetUsed, budgetRemaining: totalBudget - budgetUsed, pctUsed, pctElapsed, forecast7d, forecast30d, alertLevel });
       const slackResult = await sendSlackNotification(db, slackConfig, report, snapshotDate);
       slackNotified = slackResult.success;
       if (!slackResult.success) {
@@ -154,7 +156,6 @@ export async function runBudgetSync(config: BudgetSyncConfig): Promise<BudgetSyn
       repo: issueRepoName,
       token: issueRepoToken,
     };
-    const report = buildBudgetReport({ totalBudget, budgetUsed, budgetRemaining: totalBudget - budgetUsed, pctUsed, pctElapsed, forecast7d, forecast30d, alertLevel });
     const githubResult = await sendGitHubIssue(db, githubConfig, report, snapshotDate);
     issueNotified = githubResult.success;
     if (!githubResult.success) {
@@ -176,26 +177,3 @@ export async function runBudgetSync(config: BudgetSyncConfig): Promise<BudgetSyn
   };
 }
 
-function computeBudgetMetrics(
-  source: 'api' | 'pool_fallback',
-  billingReport: { totalBudget: number; budgetUsed: number; forecast7d?: number; forecast30d?: number } | null,
-  poolSnapshot: queries.PoolSnapshotRow | null,
-): [number, number, number | null, number | null] {
-  if (source === 'api' && billingReport && billingReport.totalBudget > 0) {
-    return [
-      billingReport.totalBudget,
-      billingReport.budgetUsed,
-      billingReport.forecast7d ?? null,
-      billingReport.forecast30d ?? null,
-    ];
-  }
-  if (!poolSnapshot) {
-    return [0, billingReport?.budgetUsed ?? 0, null, null];
-  }
-  return [
-    parseNumeric(poolSnapshot.totalCredits) ?? 0,
-    billingReport?.budgetUsed ?? parseNumeric(poolSnapshot.creditsUsed) ?? 0,
-    parseNumeric(poolSnapshot.forecast7d),
-    parseNumeric(poolSnapshot.forecast30d),
-  ];
-}

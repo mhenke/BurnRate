@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 import { describe, it, vi } from 'vitest';
 import { sendSlackNotification, sendGitHubIssue, sanitizeErrorMessage } from '../../src/budget/notifications.js';
-import type { BudgetReport } from '../../src/github/budget.js';
+import type { BudgetReport } from '../../src/budget/budget_sync.js';
 
 const mockReport: BudgetReport = {
   totalBudget: 10000,

@@ -137,7 +137,7 @@ describe('PostgreSQL Integration Test', () => {
       date.setDate(date.getDate() - day);
       const dateStr = date.toISOString().slice(0, 10);
       await db.insert(dailyUsagePg).values({
-        usageDate: dateStr,
+        usageDate: new Date(dateStr),
         githubLogin: 'postgres-user',
         credits: '100',
         tokensInput: 0n,
@@ -158,7 +158,7 @@ describe('PostgreSQL Integration Test', () => {
     // 1. Seed pool_snapshots in postgres
     const todayStr = new Date().toISOString().slice(0, 10);
     await db.insert(poolSnapshotsPg).values({
-      snapshotDate: todayStr,
+      snapshotDate: new Date(todayStr),
       totalCredits: '10000.00',
       creditsUsed: '5000.00',
       creditsRemaining: '5000.00',
@@ -203,7 +203,7 @@ describe('PostgreSQL Integration Test', () => {
     yesterdayDate.setDate(yesterdayDate.getDate() - 1);
     const yesterdayStr = yesterdayDate.toISOString().slice(0, 10);
     await db.insert(budgetSnapshotsPg).values({
-      snapshotDate: yesterdayStr,
+      snapshotDate: new Date(yesterdayStr),
       totalBudget: '10000.00',
       budgetUsed: '4000.00',
       budgetRemaining: '6000.00',

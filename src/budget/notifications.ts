@@ -1,4 +1,4 @@
-import type { BudgetReport } from '../github/budget.js';
+import type { BudgetReport } from './budget_sync.js';
 import { GITHUB_API_VERSION } from '../github/client.js';
 import * as queries from '../db/queries.js';
 

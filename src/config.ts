@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { parse } from 'yaml';
 import { config as dotenvConfig } from 'dotenv';
+import { expandEnv } from './env.js';
 
 dotenvConfig();
 
@@ -17,7 +18,7 @@ export const DEFAULT_THRESHOLDS: BurnrateThresholds = {
 };
 
 export type BurnrateConfig = {
-  github: { enterprise: string; org: string; token: string };
+  github: { enterprise?: string; org: string; token: string };
   postgres: { url: string };
   thresholds?: Partial<BurnrateThresholds>;
 };
@@ -33,10 +34,6 @@ export function resolveThresholds(
     classify: { ...DEFAULT_THRESHOLDS.classify, ...thresholds.classify },
     forecast: { ...DEFAULT_THRESHOLDS.forecast, ...thresholds.forecast },
   };
-}
-
-function expandEnv(value: string): string {
-  return value.replace(/\$\{([A-Z0-9_]+)\}/g, (_, name: string) => process.env[name] ?? '');
 }
 
 function expandConfig<T>(obj: T): T {
@@ -71,13 +68,12 @@ export function loadConfig(filePath: string): BurnrateConfig {
   const token = process.env.GITHUB_TOKEN || fileConfig.github?.token;
   const url = process.env.DATABASE_URL || fileConfig.postgres?.url;
 
-  if (!enterprise) throw new Error('Missing burnrate.yml github.enterprise');
   if (!org) throw new Error('Missing burnrate.yml github.org');
   if (!token) throw new Error('Missing burnrate.yml github.token');
   if (!url) throw new Error('Missing burnrate.yml postgres.url');
 
   return {
-    github: { enterprise, org, token },
+    github: { enterprise: enterprise ?? '', org, token },
     postgres: { url },
     thresholds: fileConfig.thresholds,
   };

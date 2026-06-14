@@ -1,17 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { parse } from 'yaml';
+import { expandEnv } from '../env.js';
 
 export type ValueTier = 'critical' | 'normal' | 'low_priority';
 
 export type ValueConfig = {
-  critical: { teams: string[]; title_patterns?: string[] };
-  normal: { teams: string[]; title_patterns?: string[] };
-  low_priority: { teams: string[]; title_patterns?: string[] };
+  critical: { teams: string[] };
+  normal: { teams: string[] };
+  low_priority: { teams: string[] };
 };
-
-function expandEnv(value: string): string {
-  return value.replace(/\$\{([A-Z0-9_]+)\}/g, (_, name: string) => process.env[name] ?? '');
-}
 
 /**
  * Load and parse the value tier YAML config file.

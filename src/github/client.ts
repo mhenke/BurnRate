@@ -13,7 +13,8 @@ export type GitHubClient = {
 /**
  * Create a GitHub API client with Octokit, configured for the target org or enterprise.
  */
-export function createGitHubClient(token: string, enterprise: string, org: string): GitHubClient {
+export function createGitHubClient(token: string, enterprise: string | undefined, org: string): GitHubClient {
+  enterprise = enterprise ?? '';
   const octokit = new Octokit({
     auth: token,
     baseUrl: 'https://api.github.com',

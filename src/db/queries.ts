@@ -9,89 +9,55 @@ import {
   budgetSnapshotsPg, budgetSnapshotsSq,
   notificationLogPg, notificationLogSq,
 } from './schema.js';
-
-function d(db: DbClient): any {
-  return db as any;
-}
-
-export function getTables(db: DbClient) {
-  if (db.isSqlite) {
-    return {
-      rawReports: rawReportsSq,
-      users: usersSq,
-      dailyUsage: dailyUsageSq,
-      teamUsage: teamUsageSq,
-      poolSnapshots: poolSnapshotsSq,
-      budgetSnapshots: budgetSnapshotsSq,
-      notificationLog: notificationLogSq,
-      now: sql`CURRENT_TIMESTAMP`,
-    };
-  }
-  return {
-    rawReports: rawReportsPg,
-    users: usersPg,
-    dailyUsage: dailyUsagePg,
-    teamUsage: teamUsagePg,
-    poolSnapshots: poolSnapshotsPg,
-    budgetSnapshots: budgetSnapshotsPg,
-    notificationLog: notificationLogPg,
-    now: sql`now()`,
-  };
-}
+import { runner, dialectTable, dialectNow } from './adapter.js';
 
 export type DailyUsageSummaryRow = { usage_date: string; credits: number };
 export async function getDailyUsageSummary(db: DbClient, sinceDate: string): Promise<DailyUsageSummaryRow[]> {
-  const isSq = db.isSqlite;
-  const table = isSq ? dailyUsageSq : dailyUsagePg;
-  const rows = await d(db)
+  const r = runner(db);
+  const t = dialectTable(db, dailyUsagePg, dailyUsageSq);
+  return r
     .select({
-      usage_date: table.usageDate,
-      credits: sql<number>`SUM(${table.credits})`.mapWith(Number),
+      usage_date: t.usageDate,
+      credits: sql<number>`SUM(${t.credits})`.mapWith(Number),
     })
-    .from(table)
-    .where(gte(table.usageDate, sinceDate))
-    .groupBy(table.usageDate)
-    .orderBy(table.usageDate);
-  return rows;
+    .from(t)
+    .where(gte(t.usageDate, sinceDate))
+    .groupBy(t.usageDate)
+    .orderBy(t.usageDate) as DailyUsageSummaryRow[];
 }
 
 export async function getLatestPoolTotal(db: DbClient): Promise<number> {
-  const isSq = db.isSqlite;
-  const table = isSq ? poolSnapshotsSq : poolSnapshotsPg;
-  const rows = await d(db)
-    .select({
-      total_credits: table.totalCredits,
-    })
-    .from(table)
-    .orderBy(desc(table.snapshotDate))
+  const r = runner(db);
+  const t = dialectTable(db, poolSnapshotsPg, poolSnapshotsSq);
+  const rows = await r
+    .select({ total_credits: t.totalCredits })
+    .from(t)
+    .orderBy(desc(t.snapshotDate))
     .limit(1);
   return rows.length > 0 ? Number(rows[0].total_credits) : 0;
 }
 
 export type UsageByUserRow = { github_login: string | null; credits: number };
 export async function getUsageByUser(db: DbClient, sinceDate: string): Promise<UsageByUserRow[]> {
-  const isSq = db.isSqlite;
-  const table = isSq ? dailyUsageSq : dailyUsagePg;
-  const rows = await d(db)
+  const r = runner(db);
+  const t = dialectTable(db, dailyUsagePg, dailyUsageSq);
+  return r
     .select({
-      github_login: table.githubLogin,
-      credits: sql<number>`SUM(${table.credits})`.mapWith(Number),
+      github_login: t.githubLogin,
+      credits: sql<number>`SUM(${t.credits})`.mapWith(Number),
     })
-    .from(table)
-    .where(gte(table.usageDate, sinceDate))
-    .groupBy(table.githubLogin);
-  return rows;
+    .from(t)
+    .where(gte(t.usageDate, sinceDate))
+    .groupBy(t.githubLogin) as UsageByUserRow[];
 }
 
 export async function getDistinctUsageDays(db: DbClient, sinceDate: string): Promise<number> {
-  const isSq = db.isSqlite;
-  const table = isSq ? dailyUsageSq : dailyUsagePg;
-  const rows = await d(db)
-    .select({
-      days: sql<number>`COUNT(DISTINCT ${table.usageDate})`.mapWith(Number),
-    })
-    .from(table)
-    .where(gte(table.usageDate, sinceDate));
+  const r = runner(db);
+  const t = dialectTable(db, dailyUsagePg, dailyUsageSq);
+  const rows = await r
+    .select({ days: sql<number>`COUNT(DISTINCT ${t.usageDate})`.mapWith(Number) })
+    .from(t)
+    .where(gte(t.usageDate, sinceDate));
   return rows[0]?.days ?? 0;
 }
 
@@ -103,18 +69,17 @@ export type UserSummaryRow = {
   bucket_updated_at: string | Date | null;
 };
 export async function getAllUsers(db: DbClient): Promise<UserSummaryRow[]> {
-  const isSq = db.isSqlite;
-  const table = isSq ? usersSq : usersPg;
-  const rows = await d(db)
+  const r = runner(db);
+  const t = dialectTable(db, usersPg, usersSq);
+  return r
     .select({
-      github_login: table.githubLogin,
-      team: table.team,
-      consumption_tier: table.consumptionTier,
-      value_tier: table.valueTier,
-      bucket_updated_at: table.bucketUpdatedAt,
+      github_login: t.githubLogin,
+      team: t.team,
+      consumption_tier: t.consumptionTier,
+      value_tier: t.valueTier,
+      bucket_updated_at: t.bucketUpdatedAt,
     })
-    .from(table);
-  return rows;
+    .from(t) as UserSummaryRow[];
 }
 
 export type PoolSnapshotRow = {
@@ -124,19 +89,19 @@ export type PoolSnapshotRow = {
   creditsUsed: string | number | null;
 };
 export async function getLatestPoolSnapshot(db: DbClient): Promise<PoolSnapshotRow | null> {
-  const isSq = db.isSqlite;
-  const table = isSq ? poolSnapshotsSq : poolSnapshotsPg;
-  const rows = await d(db)
+  const r = runner(db);
+  const t = dialectTable(db, poolSnapshotsPg, poolSnapshotsSq);
+  const rows = await r
     .select({
-      forecast7d: table.forecast7d,
-      forecast30d: table.forecast30d,
-      totalCredits: table.totalCredits,
-      creditsUsed: table.creditsUsed,
+      forecast7d: t.forecast7d,
+      forecast30d: t.forecast30d,
+      totalCredits: t.totalCredits,
+      creditsUsed: t.creditsUsed,
     })
-    .from(table)
-    .orderBy(desc(table.snapshotDate))
+    .from(t)
+    .orderBy(desc(t.snapshotDate))
     .limit(1);
-  return rows.length > 0 ? rows[0] : null;
+  return rows.length > 0 ? (rows[0] as PoolSnapshotRow) : null;
 }
 
 export type BudgetSnapshotRow = {
@@ -144,17 +109,14 @@ export type BudgetSnapshotRow = {
   alertLevel: string | null;
 };
 export async function getBudgetSnapshotByDate(db: DbClient, date: string): Promise<BudgetSnapshotRow | null> {
-  const isSq = db.isSqlite;
-  const table = isSq ? budgetSnapshotsSq : budgetSnapshotsPg;
-  const rows = await d(db)
-    .select({
-      snapshotDate: table.snapshotDate,
-      alertLevel: table.alertLevel,
-    })
-    .from(table)
-    .where(eq(table.snapshotDate, date))
+  const r = runner(db);
+  const t = dialectTable(db, budgetSnapshotsPg, budgetSnapshotsSq);
+  const rows = await r
+    .select({ snapshotDate: t.snapshotDate, alertLevel: t.alertLevel })
+    .from(t)
+    .where(eq(t.snapshotDate, date))
     .limit(1);
-  return rows.length > 0 ? rows[0] : null;
+  return rows.length > 0 ? (rows[0] as BudgetSnapshotRow) : null;
 }
 
 export type BudgetSnapshotInsert = {
@@ -172,81 +134,49 @@ export type BudgetSnapshotInsert = {
   source: string;
   note: string | null;
 };
+
 export async function upsertBudgetSnapshot(db: DbClient, snapshot: BudgetSnapshotInsert): Promise<void> {
-  const isPg = !db.isSqlite;
-  if (isPg) {
-    await d(db)
-      .insert(budgetSnapshotsPg)
-      .values({
-        snapshotDate: snapshot.snapshotDate,
-        totalBudget: snapshot.totalBudget.toString(),
-        budgetUsed: snapshot.budgetUsed.toString(),
-        budgetRemaining: snapshot.budgetRemaining.toString(),
-        pctUsed: snapshot.pctUsed.toString(),
-        pctElapsed: snapshot.pctElapsed.toString(),
-        forecast7d: snapshot.forecast7d?.toString() ?? null,
-        forecast30d: snapshot.forecast30d?.toString() ?? null,
-        pctOfBudget7d: snapshot.pctOfBudget7d?.toString() ?? null,
-        pctOfBudget30d: snapshot.pctOfBudget30d?.toString() ?? null,
-        alertLevel: snapshot.alertLevel,
-        source: snapshot.source,
-        note: snapshot.note,
-      })
-      .onConflictDoUpdate({
-        target: budgetSnapshotsPg.snapshotDate,
-        set: {
-          totalBudget: snapshot.totalBudget.toString(),
-          budgetUsed: snapshot.budgetUsed.toString(),
-          budgetRemaining: snapshot.budgetRemaining.toString(),
-          pctUsed: snapshot.pctUsed.toString(),
-          pctElapsed: snapshot.pctElapsed.toString(),
-          forecast7d: snapshot.forecast7d?.toString() ?? null,
-          forecast30d: snapshot.forecast30d?.toString() ?? null,
-          pctOfBudget7d: snapshot.pctOfBudget7d?.toString() ?? null,
-          pctOfBudget30d: snapshot.pctOfBudget30d?.toString() ?? null,
-          alertLevel: snapshot.alertLevel,
-          source: snapshot.source,
-          note: snapshot.note,
-          updatedAt: new Date(),
-        },
-      });
-  } else {
-    await d(db)
-      .insert(budgetSnapshotsSq)
-      .values({
-        snapshotDate: snapshot.snapshotDate,
-        totalBudget: snapshot.totalBudget.toString(),
-        budgetUsed: snapshot.budgetUsed.toString(),
-        budgetRemaining: snapshot.budgetRemaining.toString(),
-        pctUsed: snapshot.pctUsed.toString(),
-        pctElapsed: snapshot.pctElapsed.toString(),
-        forecast7d: snapshot.forecast7d?.toString() ?? null,
-        forecast30d: snapshot.forecast30d?.toString() ?? null,
-        pctOfBudget7d: snapshot.pctOfBudget7d?.toString() ?? null,
-        pctOfBudget30d: snapshot.pctOfBudget30d?.toString() ?? null,
-        alertLevel: snapshot.alertLevel,
-        source: snapshot.source,
-        note: snapshot.note,
-      })
-      .onConflictDoUpdate({
-        target: budgetSnapshotsSq.snapshotDate,
-        set: {
-          totalBudget: snapshot.totalBudget.toString(),
-          budgetUsed: snapshot.budgetUsed.toString(),
-          budgetRemaining: snapshot.budgetRemaining.toString(),
-          pctUsed: snapshot.pctUsed.toString(),
-          pctElapsed: snapshot.pctElapsed.toString(),
-          forecast7d: snapshot.forecast7d?.toString() ?? null,
-          forecast30d: snapshot.forecast30d?.toString() ?? null,
-          pctOfBudget7d: snapshot.pctOfBudget7d?.toString() ?? null,
-          pctOfBudget30d: snapshot.pctOfBudget30d?.toString() ?? null,
-          alertLevel: snapshot.alertLevel,
-          source: snapshot.source,
-          note: snapshot.note,
-          updatedAt: new Date().toISOString(),
-        },
-      });
-  }
+  const r = runner(db);
+  const t = dialectTable(db, budgetSnapshotsPg, budgetSnapshotsSq);
+  const now = dialectNow(db);
+  const updatedAt = db.isSqlite ? new Date().toISOString() : new Date();
+
+  const row = {
+    snapshotDate: snapshot.snapshotDate,
+    totalBudget: snapshot.totalBudget.toString(),
+    budgetUsed: snapshot.budgetUsed.toString(),
+    budgetRemaining: snapshot.budgetRemaining.toString(),
+    pctUsed: snapshot.pctUsed.toString(),
+    pctElapsed: snapshot.pctElapsed.toString(),
+    forecast7d: snapshot.forecast7d?.toString() ?? null,
+    forecast30d: snapshot.forecast30d?.toString() ?? null,
+    pctOfBudget7d: snapshot.pctOfBudget7d?.toString() ?? null,
+    pctOfBudget30d: snapshot.pctOfBudget30d?.toString() ?? null,
+    alertLevel: snapshot.alertLevel,
+    source: snapshot.source,
+    note: snapshot.note,
+    updatedAt,
+  };
+
+  await r.insert(t).values(row)
+    .onConflictDoUpdate({
+      target: t.snapshotDate,
+      set: {
+        totalBudget: row.totalBudget,
+        budgetUsed: row.budgetUsed,
+        budgetRemaining: row.budgetRemaining,
+        pctUsed: row.pctUsed,
+        pctElapsed: row.pctElapsed,
+        forecast7d: row.forecast7d,
+        forecast30d: row.forecast30d,
+        pctOfBudget7d: row.pctOfBudget7d,
+        pctOfBudget30d: row.pctOfBudget30d,
+        alertLevel: row.alertLevel,
+        source: row.source,
+        note: row.note,
+        updatedAt: row.updatedAt,
+      },
+    });
 }
 
 export type NotificationLogEntry = {
@@ -258,33 +188,18 @@ export type NotificationLogEntry = {
   success: boolean;
   errorMessage?: string;
 };
+
 export async function insertNotificationLog(db: DbClient, entry: NotificationLogEntry): Promise<void> {
-  const isPg = !db.isSqlite;
-  if (isPg) {
-    await d(db)
-      .insert(notificationLogPg)
-      .values({
-        snapshotDate: entry.snapshotDate,
-        channel: entry.channel,
-        notificationType: entry.notificationType,
-        externalId: entry.externalId || null,
-        payload: entry.payload as any,
-        success: entry.success,
-        errorMessage: entry.errorMessage || null,
-      })
-      .onConflictDoNothing();
-  } else {
-    await d(db)
-      .insert(notificationLogSq)
-      .values({
-        snapshotDate: entry.snapshotDate,
-        channel: entry.channel,
-        notificationType: entry.notificationType,
-        externalId: entry.externalId || null,
-        payload: entry.payload as any,
-        success: entry.success ? 1 : 0,
-        errorMessage: entry.errorMessage || null,
-      })
-      .onConflictDoNothing();
-  }
+  const r = runner(db);
+  const t = dialectTable(db, notificationLogPg, notificationLogSq);
+
+  await r.insert(t).values({
+    snapshotDate: entry.snapshotDate,
+    channel: entry.channel,
+    notificationType: entry.notificationType,
+    externalId: entry.externalId || null,
+    payload: entry.payload as any,
+    success: db.isSqlite ? (entry.success ? 1 : 0) : entry.success,
+    errorMessage: entry.errorMessage || null,
+  }).onConflictDoNothing();
 }
