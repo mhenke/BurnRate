@@ -226,8 +226,8 @@ GitHub offers budget alerts directly in Copilot settings.
 
 **Cons:**
 - Limited customization
-- Email-only notifications
-- No historical data export
+- Email and GitHub UI notifications only
+- No forecasting or trend analysis
 - Can't forecast or trend
 
 ### Manual Spreadsheet

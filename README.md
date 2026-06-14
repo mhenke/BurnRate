@@ -13,14 +13,19 @@
 
 ## What Problem Does This Solve?
 
-GitHub Copilot billing arrives at month-end. Sometimes the number surprises you. BurnRate gives you visibility without intervention:
+GitHub provides enforcement controls for Copilot billing — enterprise budgets, cost-center budgets, user-level hard caps, spending limits, and static threshold alerts at 75%/90%/100%. What GitHub does not provide is **observability, forecasting, attribution, and automation** around your Copilot AI Credit consumption.
+
+A concrete example: GitHub's included-usage alerts cover Actions, Packages, Codespaces, and LFS — but not Copilot AI Credits. Enterprises monitoring AI spend get no "90% of included usage consumed" alert for their Copilot pool.
+
+BurnRate fills that gap:
 
 - Daily ingestion of Copilot usage reports from the GitHub API
 - Raw payload storage protects against schema drift
 - Simple forecasts based on actual usage patterns
 - Budget alerts when approaching limits (Phase 3)
-- Zero writes to GitHub budget settings. This is monitoring, not enforcement
+- Slack and GitHub Issue notifications (Phase 3)
 - Interactive chat queries using Copilot Agent Skills
+- Zero writes to GitHub. This is monitoring, not enforcement
 
 
 ## Quick Start
