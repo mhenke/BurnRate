@@ -1,5 +1,5 @@
-import { pgTable, text as pgText, date as pgDate, jsonb as pgJsonb, timestamp as pgTimestamp, numeric as pgNumeric, bigint as pgBigint, integer as pgInteger, bigserial as pgBigserial, unique as pgUnique, boolean as pgBoolean } from 'drizzle-orm/pg-core';
-import { sqliteTable, text as sqText, integer as sqInteger, numeric as sqNumeric, unique as sqUnique } from 'drizzle-orm/sqlite-core';
+import { pgTable, text as pgText, date as pgDate, jsonb as pgJsonb, timestamp as pgTimestamp, numeric as pgNumeric, bigint as pgBigint, integer as pgInteger, bigserial as pgBigserial, unique as pgUnique, boolean as pgBoolean, index as pgIndex } from 'drizzle-orm/pg-core';
+import { sqliteTable, text as sqText, integer as sqInteger, numeric as sqNumeric, unique as sqUnique, index as sqIndex } from 'drizzle-orm/sqlite-core';
 
 // === PostgreSQL Schema ===
 // NOTE: This project declares parallel PostgreSQL (*Pg) and SQLite (*Sq) schemas.
@@ -33,7 +33,9 @@ export const usersPg = pgTable('users', {
   valueTier: pgText('value_tier'),
   bucketUpdatedAt: pgTimestamp('bucket_updated_at', { withTimezone: true }),
   updatedAt: pgTimestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  pgIndex('users_team_idx').on(t.team),
+]);
 
 export const dailyUsagePg = pgTable('daily_usage', {
   usageDate: pgDate('usage_date').notNull(),
@@ -51,7 +53,9 @@ export const dailyUsagePg = pgTable('daily_usage', {
   ideBreakdown: pgJsonb('ide_breakdown').notNull().default({}),
   languageBreakdown: pgJsonb('language_breakdown').notNull().default({}),
 }, (t) => [
-  pgUnique('daily_usage_date_login_pk').on(t.usageDate, t.githubLogin)
+  pgUnique('daily_usage_date_login_pk').on(t.usageDate, t.githubLogin),
+  pgIndex('daily_usage_github_login_idx').on(t.githubLogin),
+  pgIndex('daily_usage_usage_date_idx').on(t.usageDate),
 ]);
 
 export const teamUsagePg = pgTable('team_usage', {
@@ -72,7 +76,8 @@ export const classificationHistoryPg = pgTable('classification_history', {
   valueTier: pgText('value_tier'),
   reason: pgText('reason'),
 }, (t) => [
-  pgUnique('classification_history_date_login_pk').on(t.effectiveDate, t.githubLogin)
+  pgUnique('classification_history_date_login_pk').on(t.effectiveDate, t.githubLogin),
+  pgIndex('classification_history_github_login_idx').on(t.githubLogin),
 ]);
 
 export const poolSnapshotsPg = pgTable('pool_snapshots', {
@@ -146,7 +151,9 @@ export const usersSq = sqliteTable('users', {
   valueTier: sqText('value_tier'),
   bucketUpdatedAt: sqText('bucket_updated_at'),
   updatedAt: sqText('updated_at').notNull().default('CURRENT_TIMESTAMP'),
-});
+}, (t) => [
+  sqIndex('users_team_idx').on(t.team),
+]);
 
 export const dailyUsageSq = sqliteTable('daily_usage', {
   usageDate: sqText('usage_date').notNull(),
@@ -164,7 +171,9 @@ export const dailyUsageSq = sqliteTable('daily_usage', {
   ideBreakdown: sqText('ide_breakdown', { mode: 'json' }).notNull().default('{}'),
   languageBreakdown: sqText('language_breakdown', { mode: 'json' }).notNull().default('{}'),
 }, (t) => [
-  sqUnique('daily_usage_date_login_pk').on(t.usageDate, t.githubLogin)
+  sqUnique('daily_usage_date_login_pk').on(t.usageDate, t.githubLogin),
+  sqIndex('daily_usage_github_login_idx').on(t.githubLogin),
+  sqIndex('daily_usage_usage_date_idx').on(t.usageDate),
 ]);
 
 export const teamUsageSq = sqliteTable('team_usage', {
@@ -185,7 +194,8 @@ export const classificationHistorySq = sqliteTable('classification_history', {
   valueTier: sqText('value_tier'),
   reason: sqText('reason'),
 }, (t) => [
-  sqUnique('classification_history_date_login_pk').on(t.effectiveDate, t.githubLogin)
+  sqUnique('classification_history_date_login_pk').on(t.effectiveDate, t.githubLogin),
+  sqIndex('classification_history_github_login_idx').on(t.githubLogin),
 ]);
 
 export const poolSnapshotsSq = sqliteTable('pool_snapshots', {

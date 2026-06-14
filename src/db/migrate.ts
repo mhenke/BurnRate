@@ -100,6 +100,10 @@ export const pgSchemaStatements = [
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (snapshot_date, channel, notification_type)
   )`,
+  `CREATE INDEX IF NOT EXISTS idx_users_team ON users(team)`,
+  `CREATE INDEX IF NOT EXISTS idx_daily_usage_github_login ON daily_usage(github_login)`,
+  `CREATE INDEX IF NOT EXISTS idx_daily_usage_usage_date ON daily_usage(usage_date)`,
+  `CREATE INDEX IF NOT EXISTS idx_classification_history_github_login ON classification_history(github_login)`,
 ];
 
 export const sqliteSchemaStatements = [
@@ -201,6 +205,10 @@ export const sqliteSchemaStatements = [
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (snapshot_date, channel, notification_type)
   )`,
+  `CREATE INDEX IF NOT EXISTS idx_users_team ON users(team)`,
+  `CREATE INDEX IF NOT EXISTS idx_daily_usage_github_login ON daily_usage(github_login)`,
+  `CREATE INDEX IF NOT EXISTS idx_daily_usage_usage_date ON daily_usage(usage_date)`,
+  `CREATE INDEX IF NOT EXISTS idx_classification_history_github_login ON classification_history(github_login)`,
 ];
 
 export async function runMigrations(db: any): Promise<void> {

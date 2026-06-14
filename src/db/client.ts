@@ -14,7 +14,8 @@ let sqliteDb: Database.Database | null = null;
 
 export function initDb(connectionString: string): DbClient {
   if (connectionString.startsWith('postgres') || connectionString.startsWith('postgresql')) {
-    pgPool = new pg.Pool({ connectionString, max: 5 });
+    const poolSize = parseInt(process.env.DB_POOL_SIZE ?? '5', 10);
+    pgPool = new pg.Pool({ connectionString, max: Math.max(1, poolSize) });
     db = drizzlePg({ client: pgPool });
   } else {
     // SQLite: either a file path or :memory:

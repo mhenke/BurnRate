@@ -27,11 +27,19 @@ export type ForecastResult = {
   trendDirection: 'increasing' | 'decreasing' | 'stable';
 };
 
+/**
+ * Compute mean of an array, rounded to 2 decimal places.
+ */
 function average(arr: number[]): number {
   if (arr.length === 0) return 0;
   return Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 100) / 100;
 }
 
+/**
+ * Run a SARIMA model on the daily credit series to produce a 7-day forecast
+ * with confidence intervals. Uses order (2,1,1) with weekly seasonality (1,0,1,7).
+ * Falls back to zeros if data is too sparse or the model fails to converge.
+ */
 function computeARIMA(data: number[]): { forecast: number[]; confidence: number[] } {
   if (data.length < 14) {
     return { forecast: Array(7).fill(0), confidence: Array(7).fill(0) };
@@ -53,6 +61,10 @@ function computeARIMA(data: number[]): { forecast: number[]; confidence: number[
   }
 }
 
+/**
+ * Detect whether the latest data point is a statistical outlier using z-score.
+ * Flags as anomalous when |z| > 2.5 (approx 1.2% false positive rate under normality).
+ */
 function computeAnomalyScore(data: number[]): { score: number; isAnomalous: boolean } {
   if (data.length < 3) return { score: 0, isAnomalous: false };
 
@@ -66,6 +78,10 @@ function computeAnomalyScore(data: number[]): { score: number; isAnomalous: bool
   return { score: Math.round(score * 100) / 100, isAnomalous: score > 2.5 };
 }
 
+/**
+ * Fit a linear regression to index vs credit count and classify the direction.
+ * Slope threshold of 0.1 credits/day distinguishes noise from genuine trend.
+ */
 function computeTrend(data: number[]): { slope: number; direction: 'increasing' | 'decreasing' | 'stable' } {
   if (data.length < 2) return { slope: 0, direction: 'stable' };
 
@@ -101,6 +117,17 @@ function prepareDataWithDataFrame(data: number[]): number[] {
   return result.map((r) => r.credits);
 }
 
+/**
+ * Compute burn forecast from daily credit data.
+ *
+ * Uses three methods in parallel:
+ * 1. 7-day moving average extrapolation (captures recent spikes)
+ * 2. 30-day moving average extrapolation (captures broader trend)
+ * 3. SARIMA model with weekly seasonality (accounts for day-of-week patterns)
+ *
+ * Also computes z-score anomaly detection and linear regression trend direction.
+ * Alert levels: >=110% critical, >=100% escalation, >=90% warning, else ok.
+ */
 export function computeForecast(input: ForecastInput): ForecastResult {
   const remainingDays = input.daysInMonth - input.daysElapsed;
   const last7 = input.dailyCredits.slice(-7);
