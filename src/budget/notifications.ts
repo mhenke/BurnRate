@@ -1,5 +1,6 @@
 import type { BudgetReport } from '../github/budget.js';
-import { notificationLogPg, notificationLogSq } from '../db/schema.js';
+import { GITHUB_API_VERSION } from '../github/client.js';
+import * as queries from '../db/queries.js';
 
 /**
  * Sanitize error messages before persisting to database.
@@ -157,7 +158,7 @@ export async function sendGitHubIssue(
       headers: {
         'Authorization': `Bearer ${config.token}`,
         'Content-Type': 'application/json',
-        'X-GitHub-Api-Version': '2026-03-10',
+        'X-GitHub-Api-Version': GITHUB_API_VERSION,
         'Accept': 'application/vnd.github+json',
       },
       body: JSON.stringify(payload),
@@ -219,27 +220,13 @@ async function logNotification(
     errorMessage?: string;
   },
 ): Promise<void> {
-  const isPg = typeof (db as any).run !== 'function';
-
-  if (isPg) {
-    await db.insert(notificationLogPg).values({
-      snapshotDate: logEntry.snapshotDate,
-      channel: logEntry.channel,
-      notificationType: logEntry.notificationType,
-      externalId: logEntry.externalId || null,
-      payload: logEntry.payload as any,
-      success: logEntry.success,
-      errorMessage: logEntry.errorMessage || null,
-    }).onConflictDoNothing();
-  } else {
-    await db.insert(notificationLogSq).values({
-      snapshotDate: logEntry.snapshotDate,
-      channel: logEntry.channel,
-      notificationType: logEntry.notificationType,
-      externalId: logEntry.externalId || null,
-      payload: logEntry.payload as any,
-      success: logEntry.success ? 1 : 0,
-      errorMessage: logEntry.errorMessage || null,
-    }).onConflictDoNothing();
-  }
+  await queries.insertNotificationLog(db, {
+    snapshotDate: logEntry.snapshotDate,
+    channel: logEntry.channel,
+    notificationType: logEntry.notificationType,
+    externalId: logEntry.externalId || undefined,
+    payload: logEntry.payload,
+    success: logEntry.success,
+    errorMessage: logEntry.errorMessage || undefined,
+  });
 }

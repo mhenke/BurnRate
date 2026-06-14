@@ -39,8 +39,8 @@ describe('ETL parse functions', () => {
     assert.equal(rows[0].usageDate, '2026-06-12');
     assert.equal(rows[0].githubLogin, 'jdoe');
     assert.equal(rows[0].credits, '150.5'); // numeric column in schema is string/numeric
-    assert.equal(rows[0].tokensInput, 1000n);
-    assert.equal(rows[0].tokensOutput, 2000n);
+    assert.equal(rows[0].tokensInput, 1000);
+    assert.equal(rows[0].tokensOutput, 2000);
     assert.equal(rows[0].chatRequests, 10);
     assert.equal(rows[0].agentRequests, 5);
     assert.equal(rows[0].acceptedLines, 50);

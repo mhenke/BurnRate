@@ -34,12 +34,7 @@ describe('classify engine', () => {
       bucketUpdatedAt: null,
     }));
 
-    const result = classifyUsers(userCredits, currentUsers, {
-      resolveValueTier: (team: string | null) => {
-        if (team?.toLowerCase() === 'platform') return 'critical';
-        return 'normal';
-      },
-    }, 'manual');
+    const result = classifyUsers(userCredits, currentUsers, config, 'manual');
 
     assert.equal(result.stats.totalUsers, 4);
     assert.equal(result.stats.changedUsers, 4);
@@ -65,12 +60,7 @@ describe('classify engine', () => {
       bucketUpdatedAt: null,
     }));
 
-    const result = classifyUsers(userCredits, currentUsers, {
-      resolveValueTier: (team: string | null) => {
-        if (team?.toLowerCase() === 'platform') return 'critical';
-        return 'normal';
-      },
-    }, 'manual');
+    const result = classifyUsers(userCredits, currentUsers, config, 'manual');
 
     assert.equal(result.stats.totalUsers, 3);
     assert.equal(result.stats.tierCounts.medium, 3);
@@ -95,12 +85,7 @@ describe('classify engine', () => {
       bucketUpdatedAt: null,
     }));
 
-    const result = classifyUsers(userCredits, currentUsers, {
-      resolveValueTier: (team: string | null) => {
-        if (team?.toLowerCase() === 'platform') return 'critical';
-        return 'normal';
-      },
-    }, 'manual');
+    const result = classifyUsers(userCredits, currentUsers, config, 'manual');
 
     assert.equal(result.stats.missingTeamCount, 4);
     // All should have valueTier 'normal'
@@ -126,12 +111,7 @@ describe('classify engine', () => {
       { githubLogin: 'user4', team: 'platform', consumptionTier: 'extreme', valueTier: 'critical', bucketUpdatedAt: '2026-06-01' },
     ];
 
-    const result = classifyUsers(userCredits, currentUsers, {
-      resolveValueTier: (team: string | null) => {
-        if (team?.toLowerCase() === 'platform') return 'critical';
-        return 'normal';
-      },
-    }, 'manual');
+    const result = classifyUsers(userCredits, currentUsers, config, 'manual');
 
     // No changes expected since tiers match
     assert.equal(result.stats.changedUsers, 0);
@@ -139,6 +119,7 @@ describe('classify engine', () => {
   });
 
   it('executes classification efficiently under high scale (10,000 users)', () => {
+    const config = createTestConfig();
     const userCount = 10000;
     const userCredits = Array.from({ length: userCount }, (_, i) => ({
       githubLogin: `user-${i}`,
@@ -146,16 +127,14 @@ describe('classify engine', () => {
     }));
     const currentUsers = userCredits.map(u => ({
       githubLogin: u.githubLogin,
-      team: 'platform',
+      team: null,
       consumptionTier: null,
       valueTier: null,
       bucketUpdatedAt: null,
     }));
 
     const start = performance.now();
-    const result = classifyUsers(userCredits, currentUsers, {
-      resolveValueTier: () => 'normal',
-    }, 'scale_test');
+    const result = classifyUsers(userCredits, currentUsers, config, 'scale_test');
     const duration = performance.now() - start;
 
     assert.equal(result.stats.totalUsers, userCount);

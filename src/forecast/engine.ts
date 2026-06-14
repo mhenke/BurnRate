@@ -1,6 +1,6 @@
 import ARIMA from 'arima';
 import * as ss from 'simple-statistics';
-import { createDataFrame, s as tidyStats } from '@tidy-ts/dataframe';
+import { type BurnrateThresholds, DEFAULT_THRESHOLDS } from '../config.js';
 
 export type ForecastInput = {
   dailyCredits: number[];
@@ -8,6 +8,7 @@ export type ForecastInput = {
   creditsUsedMtd: number;
   daysInMonth: number;
   daysElapsed: number;
+  thresholds?: Pick<BurnrateThresholds['forecast'], 'trendSlope' | 'anomalyZscore'> & { alert: BurnrateThresholds['alert'] };
 };
 
 export type ForecastResult = {
@@ -65,7 +66,7 @@ function computeARIMA(data: number[]): { forecast: number[]; confidence: number[
  * Detect whether the latest data point is a statistical outlier using z-score.
  * Flags as anomalous when |z| > 2.5 (approx 1.2% false positive rate under normality).
  */
-function computeAnomalyScore(data: number[]): { score: number; isAnomalous: boolean } {
+function computeAnomalyScore(data: number[], zscoreThreshold = 2.5): { score: number; isAnomalous: boolean } {
   if (data.length < 3) return { score: 0, isAnomalous: false };
 
   const mean = ss.mean(data);
@@ -75,14 +76,14 @@ function computeAnomalyScore(data: number[]): { score: number; isAnomalous: bool
   const lastValue = data[data.length - 1];
   const score = Math.abs((lastValue - mean) / stddev);
 
-  return { score: Math.round(score * 100) / 100, isAnomalous: score > 2.5 };
+  return { score: Math.round(score * 100) / 100, isAnomalous: score > zscoreThreshold };
 }
 
 /**
  * Fit a linear regression to index vs credit count and classify the direction.
  * Slope threshold of 0.1 credits/day distinguishes noise from genuine trend.
  */
-function computeTrend(data: number[]): { slope: number; direction: 'increasing' | 'decreasing' | 'stable' } {
+function computeTrend(data: number[], slopeThreshold = 0.1): { slope: number; direction: 'increasing' | 'decreasing' | 'stable' } {
   if (data.length < 2) return { slope: 0, direction: 'stable' };
 
   const indexed: Array<[number, number]> = data.map((v, i) => [i, v]);
@@ -90,31 +91,10 @@ function computeTrend(data: number[]): { slope: number; direction: 'increasing' 
   const slope = Math.round(regression.m * 100) / 100;
 
   let direction: 'increasing' | 'decreasing' | 'stable' = 'stable';
-  if (slope > 0.1) direction = 'increasing';
-  else if (slope < -0.1) direction = 'decreasing';
+  if (slope > slopeThreshold) direction = 'increasing';
+  else if (slope < -slopeThreshold) direction = 'decreasing';
 
   return { slope, direction };
-}
-
-function prepareDataWithDataFrame(data: number[]): number[] {
-  if (data.length === 0) return [];
-
-  const now = Date.now();
-  const dayMs = 86400000;
-  const rows = data.map((credits, i) => ({
-    date: new Date(now - (data.length - 1 - i) * dayMs).toISOString().slice(0, 10),
-    credits,
-  }));
-
-  const df = createDataFrame(rows);
-  const filled = df.fillForward('credits') as ReturnType<typeof createDataFrame>;
-  const enriched = filled.mutate({
-    rolling_mean_7d: tidyStats.rolling({ column: 'credits', windowSize: 7, fn: tidyStats.mean }),
-    rolling_std_7d: tidyStats.rolling({ column: 'credits', windowSize: 7, fn: tidyStats.stdev }),
-  }) as ReturnType<typeof createDataFrame>;
-
-  const result = enriched.toArray() as unknown as Array<{ credits: number }>;
-  return result.map((r) => r.credits);
 }
 
 /**
@@ -129,6 +109,8 @@ function prepareDataWithDataFrame(data: number[]): number[] {
  * Alert levels: >=110% critical, >=100% escalation, >=90% warning, else ok.
  */
 export function computeForecast(input: ForecastInput): ForecastResult {
+  const alertThresholds = input.thresholds?.alert ?? DEFAULT_THRESHOLDS.alert;
+  const forecastThresholds = input.thresholds ?? DEFAULT_THRESHOLDS.forecast;
   const remainingDays = input.daysInMonth - input.daysElapsed;
   const last7 = input.dailyCredits.slice(-7);
   const last30 = input.dailyCredits.slice(-30);
@@ -149,14 +131,13 @@ export function computeForecast(input: ForecastInput): ForecastResult {
 
   let alertLevel: ForecastResult['alertLevel'] = 'ok';
   const maxPct = Math.max(pctOfPool7d, pctOfPool30d);
-  if (maxPct >= 110) alertLevel = 'critical';
-  else if (maxPct >= 100) alertLevel = 'escalation';
-  else if (maxPct >= 90) alertLevel = 'warning';
+  if (maxPct >= alertThresholds.criticalPct) alertLevel = 'critical';
+  else if (maxPct >= alertThresholds.escalationPct) alertLevel = 'escalation';
+  else if (maxPct >= alertThresholds.warningPct) alertLevel = 'warning';
 
-  const prepared = prepareDataWithDataFrame(input.dailyCredits);
-  const arima = computeARIMA(prepared);
-  const anomaly = computeAnomalyScore(input.dailyCredits);
-  const trend = computeTrend(input.dailyCredits);
+  const arima = computeARIMA(input.dailyCredits);
+  const anomaly = computeAnomalyScore(input.dailyCredits, forecastThresholds.anomalyZscore);
+  const trend = computeTrend(input.dailyCredits, forecastThresholds.trendSlope);
 
   return {
     rate7d,

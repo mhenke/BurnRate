@@ -1,6 +1,8 @@
 import { Octokit } from 'octokit';
 import { URL } from 'node:url';
 
+export const GITHUB_API_VERSION = '2026-03-10';
+
 export type GitHubClient = {
   octokit: Octokit;
   enterprise: string;
@@ -18,7 +20,7 @@ export function createGitHubClient(token: string, enterprise: string, org: strin
     request: {
       timeout: 15000,
       headers: {
-        'X-GitHub-Api-Version': '2026-03-10',
+        'X-GitHub-Api-Version': GITHUB_API_VERSION,
       },
     },
   });

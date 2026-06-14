@@ -10,12 +10,13 @@
     "etl": "tsx src/index.ts etl",
     "ingest": "npm run etl",
     "migrate": "tsx src/db/migrate.ts",
+    "migrate:generate-pg": "drizzle-kit generate --config=drizzle.pg.config.ts",
+    "migrate:generate-sqlite": "drizzle-kit generate --config=drizzle.sqlite.config.ts",
     "forecast": "tsx src/index.ts forecast",
     "classify": "tsx src/index.ts classify",
     "budget-sync": "tsx src/index.ts budget-sync"
   },
   "dependencies": {
-    "@tidy-ts/dataframe": "^1.5.9",
     "arima": "^0.2.8",
     "better-sqlite3": "^12.10.0",
     "dotenv": "^16.4.0",

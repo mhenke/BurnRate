@@ -4,3 +4,15 @@ github:
   token: ${GITHUB_TOKEN}
 postgres:
   url: ${DATABASE_URL}
+thresholds:
+  alert:
+    warningPct: 90
+    escalationPct: 100
+    criticalPct: 110
+  classify:
+    extremePct: 0.85
+    highPct: 0.60
+    mediumPct: 0.25
+  forecast:
+    trendSlope: 0.1
+    anomalyZscore: 2.5

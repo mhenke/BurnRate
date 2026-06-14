@@ -1,4 +1,4 @@
-import type { GitHubClient } from './client.js';
+import { GITHUB_API_VERSION, type GitHubClient } from './client.js';
 import { withRetry, type RetryOptions } from '../budget/retry.js';
 
 export type BudgetReport = {
@@ -20,12 +20,8 @@ export type BudgetReport = {
  */
 export async function fetchBilling(
   client: GitHubClient,
-  options?: { maxAttempts?: number; delays?: number[]; delayFn?: (ms: number) => Promise<void> },
+  options?: RetryOptions,
 ): Promise<BudgetReport> {
-  const maxAttempts = options?.maxAttempts ?? 3;
-  const delays = options?.delays ?? [1000, 2000, 4000];
-  const delayFn = options?.delayFn;
-
   return withRetry(async () => {
     const path = client.org
       ? '/organizations/{org}/settings/billing/ai_credit/usage'
@@ -39,7 +35,7 @@ export async function fetchBilling(
       {
         ...params,
         headers: {
-          'X-GitHub-Api-Version': '2026-03-10',
+          'X-GitHub-Api-Version': GITHUB_API_VERSION,
         },
       },
     );
@@ -71,5 +67,5 @@ export async function fetchBilling(
       pctUsed: 0,
       pctElapsed: 0,
     };
-  }, { maxAttempts, delays, delayFn });
+  }, options);
 }

@@ -117,7 +117,7 @@ describe('forecast engine', () => {
     assert.ok(result.trendSlope < 0);
   });
 
-  it('prepares data using @tidy-ts/dataframe for rolling windows', () => {
+  it('produces forecast with anomaly score, trend, and ARIMA', () => {
     const dailyCredits = [
       181.35, 181.35, 181.35, 181.35, 181.35, 181.35, 181.35,
       181.35, 181.35, 181.35, 181.35, 181.35, 181.35, 181.35

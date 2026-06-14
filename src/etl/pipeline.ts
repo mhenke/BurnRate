@@ -8,16 +8,7 @@ import { parseSeatsToUsers } from './parse_seats.js';
 import { fetchAllSeats } from '../github/seats.js';
 import { fetchReport } from '../github/reports.js';
 import { sql } from 'drizzle-orm';
-import {
-  rawReportsPg,
-  rawReportsSq,
-  usersPg,
-  usersSq,
-  dailyUsagePg,
-  dailyUsageSq,
-  teamUsagePg,
-  teamUsageSq
-} from '../db/schema.js';
+import { getTables } from '../db/queries.js';
 import { withRetry } from '../budget/retry.js';
 
 export type PipelineResult = {
@@ -34,33 +25,13 @@ export type PipelineResult = {
  * 4. Parse into normalized tables
  * 5. Upsert into daily_usage, team_usage, and users
  */
-function getTables(isSqlite: boolean) {
-  if (isSqlite) {
-    return {
-      rawReports: rawReportsSq,
-      users: usersSq,
-      dailyUsage: dailyUsageSq,
-      teamUsage: teamUsageSq,
-      now: sql`CURRENT_TIMESTAMP`,
-    };
-  }
-  return {
-    rawReports: rawReportsPg,
-    users: usersPg,
-    dailyUsage: dailyUsagePg,
-    teamUsage: teamUsagePg,
-    now: sql`now()`,
-  };
-}
-
 export async function runObserveOnlyPipeline(
   gh: GitHubClient,
   db: DbClient,
   day: string,
 ): Promise<PipelineResult> {
   const result: PipelineResult = { rawStored: 0, usageUpserted: 0, errors: [] };
-  const isSqlite = typeof (db as any).run === 'function';
-  const T = getTables(isSqlite);
+  const T = getTables(db);
 
   // 1. Process standard 1-day reports
   const reportTypes = ['users-1-day', 'enterprise-1-day', 'enterprise-user-teams-1-day'] as const;
@@ -84,8 +55,6 @@ export async function runObserveOnlyPipeline(
 
     for (const link of reportData.download_links) {
       const reportPayload = await withRetry(() => gh.fetchSignedUrl<any>(link), {
-        maxAttempts: 3,
-        delays: [1000, 2000, 4000],
         onRetry: (attempt, err) => {
           console.warn(`Retry ${attempt} for ${link}: ${err.message}`);
         },

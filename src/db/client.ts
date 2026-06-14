@@ -6,7 +6,7 @@ import Database from 'better-sqlite3';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
-export type DbClient = NodePgDatabase<any> | BetterSQLite3Database<any>;
+export type DbClient = (NodePgDatabase<any> | BetterSQLite3Database<any>) & { isSqlite: boolean };
 
 let db: DbClient | null = null;
 let pgPool: pg.Pool | null = null;
@@ -19,11 +19,11 @@ export function initDb(connectionString: string): DbClient {
   if (connectionString.startsWith('postgres') || connectionString.startsWith('postgresql')) {
     const poolSize = parseInt(process.env.DB_POOL_SIZE ?? '5', 10);
     pgPool = new pg.Pool({ connectionString, max: Math.max(1, poolSize) });
-    db = drizzlePg({ client: pgPool });
+    db = Object.assign(drizzlePg({ client: pgPool }), { isSqlite: false });
   } else {
     // SQLite: either a file path or :memory:
     sqliteDb = new Database(connectionString === ':memory:' ? ':memory:' : connectionString);
-    db = drizzleSqlite({ client: sqliteDb });
+    db = Object.assign(drizzleSqlite({ client: sqliteDb }), { isSqlite: true });
   }
   return db;
 }

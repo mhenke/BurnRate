@@ -2,8 +2,8 @@ export type DailyUsageRow = {
   usageDate: string;
   githubLogin: string;
   credits: string;
-  tokensInput: bigint;
-  tokensOutput: bigint;
+  tokensInput: number;
+  tokensOutput: number;
   chatRequests: number;
   agentRequests: number;
   acceptedLines: number;
@@ -32,8 +32,8 @@ export function parseDailyUsage(
       usageDate: report.report_day,
       githubLogin: usageRow.github_login ?? '',
       credits: credits.toString(),
-      tokensInput: BigInt(usageRow.tokens_input ?? 0),
-      tokensOutput: BigInt(usageRow.tokens_output ?? 0),
+      tokensInput: Number(usageRow.tokens_input ?? 0),
+      tokensOutput: Number(usageRow.tokens_output ?? 0),
       chatRequests: Number(usageRow.chat_requests ?? 0),
       agentRequests: Number(usageRow.agent_requests ?? 0),
       acceptedLines,

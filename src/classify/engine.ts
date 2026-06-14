@@ -1,4 +1,4 @@
-import type { ValueTier } from './value_config.js';
+import { resolveValueTier as resolveValueTierFn, type ValueConfig, type ValueTier } from './value_config.js';
 
 export type ConsumptionTier = 'low' | 'medium' | 'high' | 'extreme';
 
@@ -66,13 +66,13 @@ function assignConsumptionTier(percentile: number): ConsumptionTier {
  * 
  * @param userCredits List of user GitHub logins and total credits used over 30 days
  * @param currentUsers Current users database records
- * @param config Team resolving config mapping teams to business value tiers
+ * @param valueConfig Team resolving config mapping teams to business value tiers
  * @param reason Reason for running the classification (e.g., weekly_recalc, manual)
  */
 export function classifyUsers(
   userCredits: UserCredits[],
   currentUsers: CurrentUser[],
-  config: { resolveValueTier: (team: string | null) => string },
+  valueConfig: ValueConfig,
   reason: string,
 ): ClassifyResult {
   const totalUsers = userCredits.length;
@@ -88,7 +88,7 @@ export function classifyUsers(
     for (const uc of userCredits) {
       const current = currentUserMap.get(uc.githubLogin);
       const team = current?.team ?? null;
-      const valueTier = config.resolveValueTier(team) as ValueTier;
+      const valueTier = resolveValueTierFn(team, valueConfig) as ValueTier;
       const consumptionTier: ConsumptionTier = 'medium';
 
       if (!team) missingTeamCount++;
@@ -132,7 +132,7 @@ export function classifyUsers(
 
     const current = currentUserMap.get(uc.githubLogin);
     const team = current?.team ?? null;
-    const valueTier = config.resolveValueTier(team) as ValueTier;
+    const valueTier = resolveValueTierFn(team, valueConfig) as ValueTier;
 
     if (!team) missingTeamCount++;
     tierCounts[consumptionTier]++;

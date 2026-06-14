@@ -71,6 +71,7 @@ function createMockDb() {
     insert: vi.fn().mockReturnValue(mockInsert),
     select: vi.fn().mockReturnValue(mockSelect),
     run: vi.fn(),
+    isSqlite: true,
     constructor: {
       name: 'BaseSQLiteDatabase',
     },
