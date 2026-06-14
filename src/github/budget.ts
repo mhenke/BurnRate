@@ -2,14 +2,14 @@ import type { GitHubClient } from './client.js';
 import { withRetry, type RetryOptions } from '../budget/retry.js';
 
 export type BudgetReport = {
-  total_budget: number;
-  budget_used: number;
-  budget_remaining: number;
-  pct_used: number;
-  pct_elapsed: number;
-  forecast_7d?: number;
-  forecast_30d?: number;
-  alert_level?: 'info' | 'warning' | 'critical';
+  totalBudget: number;
+  budgetUsed: number;
+  budgetRemaining: number;
+  pctUsed: number;
+  pctElapsed: number;
+  forecast7d?: number;
+  forecast30d?: number;
+  alertLevel?: 'info' | 'warning' | 'critical';
 };
 
 export async function fetchBilling(
@@ -59,11 +59,11 @@ export async function fetchBilling(
     }
 
     return {
-      total_budget: 0,
-      budget_used: budgetUsed,
-      budget_remaining: 0,
-      pct_used: 0,
-      pct_elapsed: 0,
+      totalBudget: 0,
+      budgetUsed: budgetUsed,
+      budgetRemaining: 0,
+      pctUsed: 0,
+      pctElapsed: 0,
     };
   }, { maxAttempts, delays, delayFn });
 }

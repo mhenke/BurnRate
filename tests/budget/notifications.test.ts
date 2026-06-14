@@ -4,14 +4,14 @@ import { sendSlackNotification, sendGitHubIssue, sanitizeErrorMessage } from '..
 import type { BudgetReport } from '../../src/github/budget.js';
 
 const mockReport: BudgetReport = {
-  total_budget: 10000,
-  budget_used: 7500,
-  budget_remaining: 2500,
-  pct_used: 75,
-  pct_elapsed: 60,
-  forecast_7d: 8500,
-  forecast_30d: 9500,
-  alert_level: 'warning',
+  totalBudget: 10000,
+  budgetUsed: 7500,
+  budgetRemaining: 2500,
+  pctUsed: 75,
+  pctElapsed: 60,
+  forecast7d: 8500,
+  forecast30d: 9500,
+  alertLevel: 'warning',
 };
 
 function createMockDb() {
@@ -101,7 +101,7 @@ describe('sendSlackNotification', () => {
 
     const criticalReport: BudgetReport = {
       ...mockReport,
-      alert_level: 'critical',
+      alertLevel: 'critical',
     };
 
     const config = {
@@ -226,7 +226,7 @@ describe('sendGitHubIssue', () => {
 
     const criticalReport: BudgetReport = {
       ...mockReport,
-      alert_level: 'critical',
+      alertLevel: 'critical',
     };
 
     const config = {

@@ -31,11 +31,11 @@ describe('fetchBilling', () => {
     const result = await fetchBilling(client);
 
     assert.deepEqual(result, {
-      total_budget: 0,
-      budget_used: 7500,
-      budget_remaining: 0,
-      pct_used: 0,
-      pct_elapsed: 0,
+      totalBudget: 0,
+      budgetUsed: 7500,
+      budgetRemaining: 0,
+      pctUsed: 0,
+      pctElapsed: 0,
     });
 
     assert.equal(octokitMock.request.mock.calls[0][0], 'GET /organizations/{org}/settings/billing/ai_credit/usage');
@@ -78,7 +78,7 @@ describe('fetchBilling', () => {
 
     const result = await fetchBilling(client);
 
-    assert.equal(result.budget_used, 7500);
+    assert.equal(result.budgetUsed, 7500);
   });
 
   it('retries on failure using withRetry', async () => {
@@ -111,7 +111,7 @@ describe('fetchBilling', () => {
 
     const result = await fetchBilling(client, { maxAttempts: 3, delays: [100, 200], delayFn: () => Promise.resolve() });
 
-    assert.equal(result.budget_used, 5000);
+    assert.equal(result.budgetUsed, 5000);
     assert.equal(octokitMock.request.mock.calls.length, 3);
   });
 
@@ -144,7 +144,7 @@ describe('fetchBilling', () => {
 
     const result = await fetchBilling(client, { maxAttempts: 2, delays: [500], delayFn: () => Promise.resolve() });
 
-    assert.equal(result.budget_used, 5000);
+    assert.equal(result.budgetUsed, 5000);
     assert.equal(octokitMock.request.mock.calls.length, 2);
   });
 });

@@ -256,7 +256,7 @@ export async function runBudgetSync(config: BudgetSyncConfig): Promise<BudgetSyn
   try {
     billingReport = await fetchBilling(github, config.fetchOptions);
     
-    if (billingReport.total_budget === 0 || billingReport.total_budget === undefined) {
+    if (billingReport.totalBudget === 0 || billingReport.totalBudget === undefined) {
       source = 'pool_fallback';
       note = 'Budget API fields absent';
     }
@@ -273,19 +273,19 @@ export async function runBudgetSync(config: BudgetSyncConfig): Promise<BudgetSyn
   let forecast7d: number | null = null;
   let forecast30d: number | null = null;
   
-  if (source === 'api' && billingReport && billingReport.total_budget > 0) {
-    totalBudget = billingReport.total_budget;
-    budgetUsed = billingReport.budget_used;
-    forecast7d = billingReport.forecast_7d ?? null;
-    forecast30d = billingReport.forecast_30d ?? null;
+  if (source === 'api' && billingReport && billingReport.totalBudget > 0) {
+    totalBudget = billingReport.totalBudget;
+    budgetUsed = billingReport.budgetUsed;
+    forecast7d = billingReport.forecast7d ?? null;
+    forecast30d = billingReport.forecast30d ?? null;
   } else {
     if (!poolSnapshot) {
       totalBudget = 0;
-      budgetUsed = billingReport?.budget_used ?? 0;
+      budgetUsed = billingReport?.budgetUsed ?? 0;
       note = note ? `${note}; pool_snapshots empty` : 'pool_snapshots empty';
     } else {
       totalBudget = parseNumeric(poolSnapshot.totalCredits) ?? 0;
-      budgetUsed = billingReport?.budget_used ?? parseNumeric(poolSnapshot.creditsUsed) ?? 0;
+      budgetUsed = billingReport?.budgetUsed ?? parseNumeric(poolSnapshot.creditsUsed) ?? 0;
       forecast7d = parseNumeric(poolSnapshot.forecast7d);
       forecast30d = parseNumeric(poolSnapshot.forecast30d);
     }
@@ -293,7 +293,7 @@ export async function runBudgetSync(config: BudgetSyncConfig): Promise<BudgetSyn
   }
   
   const pctUsed = totalBudget > 0 ? (budgetUsed / totalBudget) * 100 : 0;
-  const pctElapsed = billingReport?.pct_elapsed ?? 0;
+  const pctElapsed = billingReport?.pctElapsed ?? 0;
   
   const pctOfBudget7d = forecast7d !== null && totalBudget > 0 ? (forecast7d / totalBudget) * 100 : null;
   const pctOfBudget30d = forecast30d !== null && totalBudget > 0 ? (forecast30d / totalBudget) * 100 : null;
@@ -335,14 +335,14 @@ export async function runBudgetSync(config: BudgetSyncConfig): Promise<BudgetSyn
       };
       
       const budgetReportForNotification: BudgetReport = {
-        total_budget: totalBudget,
-        budget_used: budgetUsed,
-        budget_remaining: totalBudget - budgetUsed,
-        pct_used: pctUsed,
-        pct_elapsed: pctElapsed,
-        forecast_7d: forecast7d ?? undefined,
-        forecast_30d: forecast30d ?? undefined,
-        alert_level: alertLevel === 'ok' ? 'info' : alertLevel === 'escalation' ? 'critical' : alertLevel,
+        totalBudget: totalBudget,
+        budgetUsed: budgetUsed,
+        budgetRemaining: totalBudget - budgetUsed,
+        pctUsed: pctUsed,
+        pctElapsed: pctElapsed,
+        forecast7d: forecast7d ?? undefined,
+        forecast30d: forecast30d ?? undefined,
+        alertLevel: alertLevel === 'ok' ? 'info' : alertLevel === 'escalation' ? 'critical' : alertLevel,
       } as BudgetReport;
       
       const slackResult = await sendSlackNotification(db, slackConfig, budgetReportForNotification, snapshotDate);
@@ -360,14 +360,14 @@ export async function runBudgetSync(config: BudgetSyncConfig): Promise<BudgetSyn
     };
     
     const budgetReportForNotification: BudgetReport = {
-      total_budget: totalBudget,
-      budget_used: budgetUsed,
-      budget_remaining: totalBudget - budgetUsed,
-      pct_used: pctUsed,
-      pct_elapsed: pctElapsed,
-      forecast_7d: forecast7d ?? undefined,
-      forecast_30d: forecast30d ?? undefined,
-      alert_level: alertLevel === 'ok' ? 'info' : alertLevel === 'escalation' ? 'critical' : alertLevel,
+      totalBudget: totalBudget,
+      budgetUsed: budgetUsed,
+      budgetRemaining: totalBudget - budgetUsed,
+      pctUsed: pctUsed,
+      pctElapsed: pctElapsed,
+      forecast7d: forecast7d ?? undefined,
+      forecast30d: forecast30d ?? undefined,
+      alertLevel: alertLevel === 'ok' ? 'info' : alertLevel === 'escalation' ? 'critical' : alertLevel,
     } as BudgetReport;
     
     const githubResult = await sendGitHubIssue(db, githubConfig, budgetReportForNotification, snapshotDate);
