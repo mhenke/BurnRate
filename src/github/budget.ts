@@ -42,16 +42,16 @@ export async function fetchBilling(
     };
 
     let budgetUsed = 0;
-    if (parsedBody.usageItems && Array.isArray(parsedBody.usageItems)) {
-      for (const item of parsedBody.usageItems) {
-        if (item.sku === 'Copilot AI Credits' || item.product === 'Copilot') {
-          budgetUsed += Number(item.netAmount ?? item.grossAmount ?? 0);
-        }
-      }
+    const hasUsageData = parsedBody.usageItems && Array.isArray(parsedBody.usageItems) && parsedBody.usageItems.length > 0;
+
+    if (!hasUsageData) {
+      throw new Error('Budget billing data unavailable — usageItems empty or missing');
     }
 
-    if (budgetUsed === 0) {
-      throw new Error('Budget billing data unavailable — usageItems empty or missing');
+    for (const item of parsedBody.usageItems!) {
+      if (item.sku === 'Copilot AI Credits' || item.product === 'Copilot') {
+        budgetUsed += Number(item.netAmount ?? item.grossAmount ?? 0);
+      }
     }
 
     return {

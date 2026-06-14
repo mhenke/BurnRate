@@ -143,4 +143,55 @@ describe('fetchBilling', () => {
     assert.equal(result.budgetUsed, 5000);
     assert.equal(octokitMock.request.mock.calls.length, 2);
   });
+  it('returns 0 when all Copilot items have zero netAmount (valid zero-spend org)', async () => {
+    const mockUsageData = {
+      timePeriod: { year: 2026, month: 6 },
+      organization: 'acme-inc',
+      usageItems: [
+        {
+          product: 'Copilot',
+          sku: 'Copilot AI Credits',
+          netAmount: 0,
+        }
+      ]
+    };
+
+    const octokitMock = {
+      request: vi.fn().mockResolvedValue({ data: mockUsageData }),
+    };
+
+    const client: GitHubClient = {
+      octokit: octokitMock as any,
+      enterprise: 'acme',
+      org: 'acme-inc',
+      fetchSignedUrl: async <T>() => ({}) as T,
+    };
+
+    const result = await fetchBilling(client);
+    assert.equal(result.budgetUsed, 0);
+  });
+
+  it('throws when usageItems is absent (API unavailable)', async () => {
+    const mockUsageData = {
+      timePeriod: { year: 2026, month: 6 },
+      organization: 'acme-inc',
+      // usageItems intentionally absent
+    };
+
+    const octokitMock = {
+      request: vi.fn().mockResolvedValue({ data: mockUsageData }),
+    };
+
+    const client: GitHubClient = {
+      octokit: octokitMock as any,
+      enterprise: 'acme',
+      org: 'acme-inc',
+      fetchSignedUrl: async <T>() => ({}) as T,
+    };
+
+    await assert.rejects(
+      () => fetchBilling(client, { maxAttempts: 1, delays: [], delayFn: () => Promise.resolve() }),
+      /usageItems empty or missing/,
+    );
+  });
 });

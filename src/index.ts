@@ -1,5 +1,4 @@
 import { fileURLToPath } from 'node:url';
-import { existsSync } from 'node:fs';
 import { config } from 'dotenv';
 import { loadConfig, resolveThresholds, type BurnrateConfig } from './config.js';
 import { initDb, closeDb } from './db/client.js';
@@ -11,6 +10,7 @@ import { runClassify } from './classify/runner.js';
 import { runBudgetSync } from './budget/budget_sync.js';
 import { daysAgo } from './constants.js';
 import * as queries from './db/queries.js';
+import { slurpArg, parseClassifyArgs, parseEtlArgs } from './cli/args.js';
 
 config();
 
@@ -47,47 +47,6 @@ async function runClassificationCommand(opts: { configPath: string; valueConfigP
   } finally {
     await closeDb();
   }
-}
-
-function slurpArg(argv: string[], i: number, flag: string): { value: string; nextIndex: number } {
-  const arg = argv[i];
-  if (arg.startsWith(flag + '=')) {
-    return { value: arg.slice((flag + '=').length), nextIndex: i };
-  }
-  const next = argv[i + 1];
-  if (!next || next.startsWith('--')) {
-    throw new Error(`Missing value after ${flag}`);
-  }
-  return { value: next, nextIndex: i + 1 };
-}
-
-function parseClassifyArgs(argv: string[]): { valueConfigPath: string; report: boolean } {
-  let valueConfigPath = process.env.VALUE_CONFIG_PATH ?? 'config/value_config.yml';
-  let report = false;
-
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-
-    if (arg === '--report') {
-      report = true;
-      continue;
-    }
-
-    if (arg.startsWith('--value-config')) {
-      const { value, nextIndex } = slurpArg(argv, index, '--value-config');
-      valueConfigPath = value;
-      index = nextIndex;
-      continue;
-    }
-
-    throw new Error(`Unknown classify flag: ${arg}`);
-  }
-
-  if (!process.env.VALUE_CONFIG_PATH && valueConfigPath === 'config/value_config.yml' && !existsSync(valueConfigPath)) {
-    valueConfigPath = 'config/value_config.sample.yml';
-  }
-
-  return { valueConfigPath, report };
 }
 
 
@@ -210,38 +169,6 @@ export async function main(argv: string[]): Promise<void> {
   }
 
   throw new Error(`Unknown command: ${command}`);
-}
-
-function formatIsoDate(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
-function parseEtlArgs(argv: string[]): { day: string; userSupplied: boolean } {
-  let userSupplied = false;
-  let day: string | undefined;
-
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-
-    if (arg.startsWith('--day')) {
-      const { value, nextIndex } = slurpArg(argv, index, '--day');
-      day = value;
-      userSupplied = true;
-      index = nextIndex;
-      continue;
-    }
-
-    throw new Error(`Unknown etl flag: ${arg}`);
-  }
-
-  if (day && !/^\d{4}-\d{2}-\d{2}$/.test(day)) {
-    throw new Error('Day must be in YYYY-MM-DD format');
-  }
-
-  return {
-    day: day ?? formatIsoDate(new Date(Date.now() - 86400000)),
-    userSupplied,
-  };
 }
 
 // Allow direct execution

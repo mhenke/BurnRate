@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 import { describe, it } from 'vitest';
 import { parseEnterpriseReportToUsers } from '../../src/etl/parse_users.js';
-import { parseDailyUsage } from '../../src/etl/parse_enterprise.js';
+import { parseDailyUsage } from '../../src/etl/parse_daily_user_usage.js';
 import { parseTeamMembers, parseTeamUsage } from '../../src/etl/parse_teams.js';
 import { parseSeatsToUsers } from '../../src/etl/parse_seats.js';
 

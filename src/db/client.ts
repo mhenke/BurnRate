@@ -8,6 +8,10 @@ import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
 export type DbClient = (NodePgDatabase<any> | BetterSQLite3Database<any>) & { isSqlite: boolean };
 
+// Module-level singletons — intentional for a CLI tool where each process
+// lifetime initializes exactly one database connection. If this module is
+// ever used in a long-lived server process, replace with explicit dependency
+// injection to support connection pooling per request or per tenant.
 let db: DbClient | null = null;
 let pgPool: pg.Pool | null = null;
 let sqliteDb: Database.Database | null = null;

@@ -1,7 +1,7 @@
 import type { DbClient } from '../db/client.js';
 import type { GitHubClient } from '../github/client.js';
 import { parseEnterpriseReportToUsers } from './parse_users.js';
-import { parseDailyUsage } from './parse_enterprise.js';
+import { parseDailyUsage } from './parse_daily_user_usage.js';
 import { parseTeamMembers, parseTeamUsage } from './parse_teams.js';
 import { parseSeatsToUsers } from './parse_seats.js';
 import { fetchAllSeats } from '../github/seats.js';
