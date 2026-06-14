@@ -1,16 +1,18 @@
-import { daysAgo } from '../constants.js';
+import { daysAgo, today } from '../constants.js';
 import { loadValueConfig } from './value_config.js';
 import { classifyUsers } from './engine.js';
 import type { DbClient } from '../db/client.js';
 import { sql } from 'drizzle-orm';
 import { usersPg, usersSq, classificationHistoryPg, classificationHistorySq } from '../db/schema.js';
-import { dbHandle } from '../db/adapter.js';
+import { dialectDb, dialectNow } from '../db/adapter.js';
 import * as queries from '../db/queries.js';
 
 export type ClassifyOptions = {
   valueConfigPath: string;
   reason: 'weekly_recalc' | 'manual';
   showReport: boolean;
+  /** Optional threshold overrides for consumption-tier classification. */
+  classifyThresholds?: { extremePct: number; highPct: number; mediumPct: number };
 };
 
 export type ClassifyRunnerResult = {
@@ -28,10 +30,10 @@ async function writeChanges(
   effectiveDate: string,
   now: string | Date,
 ) {
-  const r = dbHandle(db);
+  const r = dialectDb(db);
   const usersTable = db.isSqlite ? usersSq : usersPg;
   const historyTable = db.isSqlite ? classificationHistorySq : classificationHistoryPg;
-  const nowExpr = db.isSqlite ? sql`CURRENT_TIMESTAMP` : sql`now()`;
+  const nowExpr = dialectNow(db);
 
   const doWrite = (tx: any) => {
     for (const change of changes) {
@@ -127,8 +129,10 @@ export async function runClassify(
     bucketUpdatedAt: r.bucket_updated_at instanceof Date ? r.bucket_updated_at.toISOString() : r.bucket_updated_at,
   }));
 
-  const effectiveDate = new Date().toISOString().slice(0, 10);
-  const result = classifyUsers(userCredits, currentUsers, valueConfig, options.reason);
+  const effectiveDate = today();
+  const result = classifyUsers(
+    userCredits, currentUsers, valueConfig, options.reason, options.classifyThresholds,
+  );
 
   if (result.changes.length > 0) {
     await writeChanges(db, result.changes, effectiveDate,

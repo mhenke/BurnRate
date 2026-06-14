@@ -12,6 +12,14 @@ import {
 import { runner, dialectTable, dialectNow } from './adapter.js';
 
 export type DailyUsageSummaryRow = { usage_date: string; credits: number };
+
+/**
+ * Aggregate daily credit usage per day since `sinceDate`.
+ *
+ * @param db Active database client.
+ * @param sinceDate ISO-8601 `YYYY-MM-DD` lower bound (inclusive).
+ * @returns Rows ordered by `usage_date` ascending; empty array when no data exists.
+ */
 export async function getDailyUsageSummary(db: DbClient, sinceDate: string): Promise<DailyUsageSummaryRow[]> {
   const r = runner(db);
   const t = dialectTable(db, dailyUsagePg, dailyUsageSq);
@@ -26,6 +34,12 @@ export async function getDailyUsageSummary(db: DbClient, sinceDate: string): Pro
     .orderBy(t.usageDate) as DailyUsageSummaryRow[];
 }
 
+/**
+ * Return the credit total from the most-recent pool snapshot.
+ *
+ * @param db Active database client.
+ * @returns Total credits as a number; `0` when the pool_snapshots table is empty.
+ */
 export async function getLatestPoolTotal(db: DbClient): Promise<number> {
   const r = runner(db);
   const t = dialectTable(db, poolSnapshotsPg, poolSnapshotsSq);
@@ -38,6 +52,14 @@ export async function getLatestPoolTotal(db: DbClient): Promise<number> {
 }
 
 export type UsageByUserRow = { github_login: string | null; credits: number };
+
+/**
+ * Aggregate total credits consumed per user since `sinceDate`.
+ *
+ * @param db Active database client.
+ * @param sinceDate ISO-8601 `YYYY-MM-DD` lower bound (inclusive).
+ * @returns One row per distinct `github_login`; empty array when no data exists.
+ */
 export async function getUsageByUser(db: DbClient, sinceDate: string): Promise<UsageByUserRow[]> {
   const r = runner(db);
   const t = dialectTable(db, dailyUsagePg, dailyUsageSq);
@@ -51,6 +73,14 @@ export async function getUsageByUser(db: DbClient, sinceDate: string): Promise<U
     .groupBy(t.githubLogin) as UsageByUserRow[];
 }
 
+/**
+ * Count the number of distinct calendar days with usage data since `sinceDate`.
+ * Used to validate that enough history exists before running classification.
+ *
+ * @param db Active database client.
+ * @param sinceDate ISO-8601 `YYYY-MM-DD` lower bound (inclusive).
+ * @returns Number of distinct days; `0` when the table is empty.
+ */
 export async function getDistinctUsageDays(db: DbClient, sinceDate: string): Promise<number> {
   const r = runner(db);
   const t = dialectTable(db, dailyUsagePg, dailyUsageSq);
@@ -68,6 +98,14 @@ export type UserSummaryRow = {
   value_tier: string | null;
   bucket_updated_at: string | Date | null;
 };
+
+/**
+ * Fetch all users with their current tier assignments.
+ * Used by the classification pipeline to compare new assignments against existing ones.
+ *
+ * @param db Active database client.
+ * @returns All rows from the `users` table; empty array when no users exist.
+ */
 export async function getAllUsers(db: DbClient): Promise<UserSummaryRow[]> {
   const r = runner(db);
   const t = dialectTable(db, usersPg, usersSq);
@@ -88,6 +126,14 @@ export type PoolSnapshotRow = {
   totalCredits: string | number | null;
   creditsUsed: string | number | null;
 };
+
+/**
+ * Return the most-recent pool snapshot record.
+ * Pool snapshots capture point-in-time credit pool totals and forecasts.
+ *
+ * @param db Active database client.
+ * @returns The latest snapshot row, or `null` when the table is empty.
+ */
 export async function getLatestPoolSnapshot(db: DbClient): Promise<PoolSnapshotRow | null> {
   const r = runner(db);
   const t = dialectTable(db, poolSnapshotsPg, poolSnapshotsSq);
@@ -108,6 +154,14 @@ export type BudgetSnapshotRow = {
   snapshotDate: string;
   alertLevel: string | null;
 };
+
+/**
+ * Fetch the budget snapshot for a specific calendar date.
+ *
+ * @param db Active database client.
+ * @param date ISO-8601 `YYYY-MM-DD` date to look up.
+ * @returns The snapshot row for that date, or `null` when none exists.
+ */
 export async function getBudgetSnapshotByDate(db: DbClient, date: string): Promise<BudgetSnapshotRow | null> {
   const r = runner(db);
   const t = dialectTable(db, budgetSnapshotsPg, budgetSnapshotsSq);
@@ -135,6 +189,13 @@ export type BudgetSnapshotInsert = {
   note: string | null;
 };
 
+/**
+ * Insert or update today's budget snapshot using `snapshot_date` as the conflict key.
+ * All numeric fields are stored as strings to preserve decimal precision across dialects.
+ *
+ * @param db Active database client.
+ * @param snapshot Fully-populated budget snapshot to persist.
+ */
 export async function upsertBudgetSnapshot(db: DbClient, snapshot: BudgetSnapshotInsert): Promise<void> {
   const r = runner(db);
   const t = dialectTable(db, budgetSnapshotsPg, budgetSnapshotsSq);
@@ -189,6 +250,13 @@ export type NotificationLogEntry = {
   errorMessage?: string;
 };
 
+/**
+ * Append a notification attempt record to `notification_log`.
+ * Uses `ON CONFLICT DO NOTHING` so duplicate delivery attempts are silently skipped.
+ *
+ * @param db Active database client.
+ * @param entry Log entry describing the notification channel, outcome, and payload.
+ */
 export async function insertNotificationLog(db: DbClient, entry: NotificationLogEntry): Promise<void> {
   const r = runner(db);
   const t = dialectTable(db, notificationLogPg, notificationLogSq);

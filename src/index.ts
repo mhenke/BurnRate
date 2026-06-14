@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
 import { config } from 'dotenv';
-import { loadConfig, type BurnrateConfig } from './config.js';
+import { loadConfig, resolveThresholds, type BurnrateConfig } from './config.js';
 import { initDb, closeDb } from './db/client.js';
 import { runMigrations } from './db/migrate.js';
 import { createGitHubClient } from './github/client.js';
@@ -14,13 +14,16 @@ import * as queries from './db/queries.js';
 
 config();
 
+const DEFAULT_CONFIG_PATH = 'config/burnrate.yml';
+
 function getConfig(): BurnrateConfig {
-  const cfgPath = process.env.BURNRATE_CONFIG ?? 'config/burnrate.yml';
+  const cfgPath = process.env.BURNRATE_CONFIG ?? DEFAULT_CONFIG_PATH;
   return loadConfig(cfgPath);
 }
 
 async function runClassificationCommand(opts: { configPath: string; valueConfigPath: string; report: boolean }) {
   const cfg = getConfig();
+  const resolvedThresholds = resolveThresholds(cfg.thresholds);
   const db = initDb(cfg.postgres.url);
 
   try {
@@ -28,6 +31,7 @@ async function runClassificationCommand(opts: { configPath: string; valueConfigP
       valueConfigPath: opts.valueConfigPath,
       reason: 'manual',
       showReport: opts.report,
+      classifyThresholds: resolvedThresholds.classify,
     });
 
     if (opts.report) {
@@ -169,7 +173,7 @@ export async function main(argv: string[]): Promise<void> {
 
   if (command === 'classify') {
     const parsed = parseClassifyArgs(argv.slice(3));
-    const configPath = process.env.BURNRATE_CONFIG ?? 'config/burnrate.yml';
+    const configPath = process.env.BURNRATE_CONFIG ?? DEFAULT_CONFIG_PATH;
     await runClassificationCommand({
       configPath,
       valueConfigPath: parsed.valueConfigPath,

@@ -1,6 +1,7 @@
 import type { BudgetReport } from './budget_sync.js';
 import { GITHUB_API_VERSION } from '../github/client.js';
 import * as queries from '../db/queries.js';
+import type { DbClient } from '../db/client.js';
 
 /**
  * Sanitize error messages before persisting to database.
@@ -49,7 +50,7 @@ export type GitHubIssueConfig = {
  * NotificationResult so callers never need to catch.
  */
 async function sendAndLog(
-  db: any,
+  db: DbClient,
   channel: NotificationChannel,
   notificationType: string,
   snapshotDate: string,
@@ -80,7 +81,7 @@ async function sendAndLog(
  * Send a budget alert to a Slack webhook.
  */
 export async function sendSlackNotification(
-  db: any,
+  db: DbClient,
   config: SlackConfig,
   report: BudgetReport,
   snapshotDate: string,
@@ -124,7 +125,7 @@ export async function sendSlackNotification(
  * Create or update a GitHub Issue with the current budget alert.
  */
 export async function sendGitHubIssue(
-  db: any,
+  db: DbClient,
   config: GitHubIssueConfig,
   report: BudgetReport,
   snapshotDate: string,
@@ -178,7 +179,7 @@ export async function sendGitHubIssue(
 }
 
 async function logNotification(
-  db: any,
+  db: DbClient,
   logEntry: {
     snapshotDate: string;
     channel: NotificationChannel;

@@ -1,4 +1,5 @@
 import { resolveValueTier as resolveValueTierFn, type ValueConfig, type ValueTier } from './value_config.js';
+import { DEFAULT_THRESHOLDS } from '../config.js';
 
 export type ConsumptionTier = 'low' | 'medium' | 'high' | 'extreme';
 
@@ -41,19 +42,22 @@ export type ClassifyResult = {
 };
 
 /**
- * Map credit consumption percentile to a consumption tier.
- * Percentile thresholds:
- * - >= 85%: extreme
- * - >= 60% and < 85%: high
- * - >= 25% and < 60%: medium
- * - < 25%: low
- * 
- * @param percentile The calculated percentile (value between 0 and 1)
+ * Map a credit consumption percentile to a consumption tier using the
+ * configured threshold ladder. Thresholds default to
+ * {@link DEFAULT_THRESHOLDS.classify} so callers that omit them always
+ * agree with the configured defaults.
+ *
+ * @param percentile Relative rank in [0, 1]; 1 = highest consumer.
+ * @param thresholds Optional override for extreme/high/medium cutoffs.
+ * @returns 'extreme' | 'high' | 'medium' | 'low'
  */
-function assignConsumptionTier(percentile: number): ConsumptionTier {
-  if (percentile >= 0.85) return 'extreme';
-  if (percentile >= 0.60) return 'high';
-  if (percentile >= 0.25) return 'medium';
+function assignConsumptionTier(
+  percentile: number,
+  thresholds = DEFAULT_THRESHOLDS.classify,
+): ConsumptionTier {
+  if (percentile >= thresholds.extremePct) return 'extreme';
+  if (percentile >= thresholds.highPct) return 'high';
+  if (percentile >= thresholds.mediumPct) return 'medium';
   return 'low';
 }
 
@@ -61,19 +65,21 @@ function assignConsumptionTier(percentile: number): ConsumptionTier {
  * Classify users based on their credit usage relative to the organization.
  * Calculates credit consumption percentiles and maps them to consumption tiers.
  * Maps team assignments to business value tiers based on the config.
- * 
+ *
  * If total users < 4, falls back to assigning all users to the 'medium' consumption tier.
- * 
+ *
  * @param userCredits List of user GitHub logins and total credits used over 30 days
  * @param currentUsers Current users database records
  * @param valueConfig Team resolving config mapping teams to business value tiers
  * @param reason Reason for running the classification (e.g., weekly_recalc, manual)
+ * @param classifyThresholds Optional threshold overrides; defaults to {@link DEFAULT_THRESHOLDS.classify}
  */
 export function classifyUsers(
   userCredits: UserCredits[],
   currentUsers: CurrentUser[],
   valueConfig: ValueConfig,
   reason: string,
+  classifyThresholds?: { extremePct: number; highPct: number; mediumPct: number },
 ): ClassifyResult {
   const totalUsers = userCredits.length;
   const changes: TierChange[] = [];
@@ -90,7 +96,7 @@ export function classifyUsers(
       }
     : (credits: number) => {
         const percentile = percentileFn(credits);
-        return assignConsumptionTier(percentile);
+        return assignConsumptionTier(percentile, classifyThresholds);
       };
 
   // Build percentile lookup (unused when < 4 users, but cheap to compute)

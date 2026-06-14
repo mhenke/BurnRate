@@ -154,7 +154,7 @@ async function upsertTeamMemberUsers(ctx: PipelineCtx, memberRows: Array<{ githu
     });
 }
 
-async function processReportPayload(ctx: PipelineCtx, reportType: string, payload: unknown): Promise<number> {
+async function parseAndStoreReport(ctx: PipelineCtx, reportType: string, payload: unknown): Promise<number> {
   let usageUpserted = 0;
 
   if (reportType === 'enterprise-1-day') {
@@ -236,7 +236,7 @@ export async function runObserveOnlyPipeline(
       if (!reportPayload) continue;
 
       await storeRawReport(ctx, reportType, link, reportPayload);
-      ctx.result.usageUpserted += await processReportPayload(ctx, reportType, reportPayload);
+      ctx.result.usageUpserted += await parseAndStoreReport(ctx, reportType, reportPayload);
     }
   }
 
