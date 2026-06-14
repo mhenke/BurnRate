@@ -45,6 +45,18 @@ async function runClassificationCommand(opts: { configPath: string; valueConfigP
   }
 }
 
+function slurpArg(argv: string[], i: number, flag: string): { value: string; nextIndex: number } {
+  const arg = argv[i];
+  if (arg.startsWith(flag + '=')) {
+    return { value: arg.slice((flag + '=').length), nextIndex: i };
+  }
+  const next = argv[i + 1];
+  if (!next || next.startsWith('--')) {
+    throw new Error(`Missing value after ${flag}`);
+  }
+  return { value: next, nextIndex: i + 1 };
+}
+
 function parseClassifyArgs(argv: string[]): { valueConfigPath: string; report: boolean } {
   let valueConfigPath = process.env.VALUE_CONFIG_PATH ?? 'config/value_config.yml';
   let report = false;
@@ -57,18 +69,10 @@ function parseClassifyArgs(argv: string[]): { valueConfigPath: string; report: b
       continue;
     }
 
-    if (arg === '--value-config') {
-      const next = argv[index + 1];
-      if (!next || next.startsWith('--')) {
-        throw new Error('Missing value config path after --value-config');
-      }
-      valueConfigPath = next;
-      index += 1;
-      continue;
-    }
-
-    if (arg.startsWith('--value-config=')) {
-      valueConfigPath = arg.slice('--value-config='.length);
+    if (arg.startsWith('--value-config')) {
+      const { value, nextIndex } = slurpArg(argv, index, '--value-config');
+      valueConfigPath = value;
+      index = nextIndex;
       continue;
     }
 
@@ -242,20 +246,11 @@ function parseEtlArgs(argv: string[]): { day: string; userSupplied: boolean } {
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
 
-    if (arg === '--day') {
-      const next = argv[index + 1];
-      if (!next || next.startsWith('--')) {
-        throw new Error('Missing value after --day');
-      }
-      day = next;
+    if (arg.startsWith('--day')) {
+      const { value, nextIndex } = slurpArg(argv, index, '--day');
+      day = value;
       userSupplied = true;
-      index += 1;
-      continue;
-    }
-
-    if (arg.startsWith('--day=')) {
-      day = arg.slice('--day='.length);
-      userSupplied = true;
+      index = nextIndex;
       continue;
     }
 

@@ -1,6 +1,7 @@
 import ARIMA from 'arima';
 import * as ss from 'simple-statistics';
 import { type BurnrateThresholds, DEFAULT_THRESHOLDS } from '../config.js';
+import { computeAlertLevel } from '../constants.js';
 
 export type ForecastInput = {
   dailyCredits: number[];
@@ -38,17 +39,23 @@ function average(arr: number[]): number {
 
 /**
  * Run a SARIMA model on the daily credit series to produce a 7-day forecast
- * with confidence intervals. Uses order (2,1,1) with weekly seasonality (1,0,1,7).
- * Falls back to zeros if data is too sparse or the model fails to converge.
+ * with confidence intervals.
+ *
+ * Model: ARIMA(2,1,1) × (1,0,1)[7] — chosen because credit usage exhibits
+ * trend (d=1), short-term AR/MA dependence (p=2, q=1), and weekly seasonality
+ * (s=7 with seasonal AR/MA at P=1, Q=1). Fewer parameters risk underfitting;
+ * more risk overfitting given typical 30-day windows.
+ *
+ * Falls back to zeros if fewer than 14 data points (need 2 weeks minimum for
+ * weekly pattern detection) or if the model fails to converge.
  */
 function computeARIMA(data: number[]): { forecast: number[]; confidence: number[] } {
   if (data.length < 14) {
     return { forecast: Array(7).fill(0), confidence: Array(7).fill(0) };
   }
 
-  try {
-    // ARIMA(2,1,1) × (1,0,1)[7] SARIMA: accounts for trend (d=1),
-    // short-term dependence (p=2, q=1), and weekly seasonality (s=7).
+    try {
+    // ARIMA(2,1,1) × (1,0,1)[7] SARIMA: see computeARIMA JSDoc for rationale.
     const model = new ARIMA({
       p: 2, d: 1, q: 1,
       P: 1, D: 0, Q: 1, s: 7,
@@ -129,11 +136,7 @@ export function computeForecast(input: ForecastInput): ForecastResult {
       ? Math.round((Math.abs(rate7d - rate30d) / Math.max(rate7d, rate30d)) * 10000) / 100
       : 0;
 
-  let alertLevel: ForecastResult['alertLevel'] = 'ok';
-  const maxPct = Math.max(pctOfPool7d, pctOfPool30d);
-  if (maxPct >= alertThresholds.criticalPct) alertLevel = 'critical';
-  else if (maxPct >= alertThresholds.escalationPct) alertLevel = 'escalation';
-  else if (maxPct >= alertThresholds.warningPct) alertLevel = 'warning';
+  const alertLevel = computeAlertLevel(pctOfPool7d, pctOfPool30d, alertThresholds);
 
   const arima = computeARIMA(input.dailyCredits);
   const anomaly = computeAnomalyScore(input.dailyCredits, forecastThresholds.anomalyZscore);

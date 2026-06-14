@@ -44,6 +44,39 @@ export type GitHubIssueConfig = {
 };
 
 /**
+ * Try to send a notification via the provided HTTP action. Logs outcome
+ * to notification_log (success or failure). Returns a structured
+ * NotificationResult so callers never need to catch.
+ */
+async function sendAndLog(
+  db: any,
+  channel: NotificationChannel,
+  notificationType: string,
+  snapshotDate: string,
+  externalId: string | undefined,
+  payload: unknown,
+  action: () => Promise<{ success: boolean; externalId?: string }>,
+): Promise<NotificationResult> {
+  try {
+    const result = await action();
+    await logNotification(db, {
+      snapshotDate, channel, notificationType,
+      externalId: result.externalId ?? externalId ?? 'default',
+      payload, success: result.success,
+    });
+    return { success: result.success, channel, externalId: result.externalId ?? externalId ?? 'default' };
+  } catch (error) {
+    const errorMessage = sanitizeErrorMessage(error);
+    await logNotification(db, {
+      snapshotDate, channel, notificationType,
+      externalId: externalId ?? 'default',
+      payload, success: false, errorMessage,
+    });
+    return { success: false, channel, errorMessage };
+  }
+}
+
+/**
  * Send a budget alert to a Slack webhook.
  */
 export async function sendSlackNotification(
@@ -72,51 +105,19 @@ export async function sendSlackNotification(
     ],
   };
 
-  try {
-    const response = await fetch(config.webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(15000),
+  return sendAndLog(db, 'slack', 'budget_alert', snapshotDate, config.channel || 'default', payload,
+    async () => {
+      const response = await fetch(config.webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!response.ok) {
+        throw new Error(`Slack webhook returned ${response.status} ${response.statusText}`);
+      }
+      return { success: true, externalId: config.channel };
     });
-
-    if (!response.ok) {
-      throw new Error(`Slack webhook returned ${response.status} ${response.statusText}`);
-    }
-
-    await logNotification(db, {
-      snapshotDate,
-      channel: 'slack',
-      notificationType: 'budget_alert',
-      externalId: config.channel || 'default',
-      payload,
-      success: true,
-    });
-
-    return {
-      success: true,
-      channel: 'slack',
-      externalId: config.channel || 'default',
-    };
-  } catch (error) {
-    const errorMessage = sanitizeErrorMessage(error);
-
-    await logNotification(db, {
-      snapshotDate,
-      channel: 'slack',
-      notificationType: 'budget_alert',
-      externalId: config.channel || 'default',
-      payload,
-      success: false,
-      errorMessage,
-    });
-
-    return {
-      success: false,
-      channel: 'slack',
-      errorMessage,
-    };
-  }
 }
 
 /**
@@ -152,60 +153,28 @@ export async function sendGitHubIssue(
     labels: ['budget', 'alert', report.alertLevel || 'info'],
   };
 
-  try {
-    const response = await fetch(`https://api.github.com/repos/${config.owner}/${config.repo}/issues`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${config.token}`,
-        'Content-Type': 'application/json',
-        'X-GitHub-Api-Version': GITHUB_API_VERSION,
-        'Accept': 'application/vnd.github+json',
-      },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(15000),
+  return sendAndLog(db, 'github_issue', 'budget_alert', snapshotDate, undefined, payload,
+    async () => {
+      const response = await fetch(`https://api.github.com/repos/${config.owner}/${config.repo}/issues`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${config.token}`,
+          'Content-Type': 'application/json',
+          'X-GitHub-Api-Version': GITHUB_API_VERSION,
+          'Accept': 'application/vnd.github+json',
+        },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(15000),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`GitHub API returned ${response.status}: ${sanitizeErrorMessage(errorText)}`);
+      }
+
+      const result = await response.json() as { number: number; html_url: string };
+      return { success: true, externalId: String(result.number) };
     });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      // Sanitize before throwing to prevent secrets in error chain
-      throw new Error(`GitHub API returned ${response.status}: ${sanitizeErrorMessage(errorText)}`);
-    }
-
-    const result = await response.json() as { number: number; html_url: string };
-
-    await logNotification(db, {
-      snapshotDate,
-      channel: 'github_issue',
-      notificationType: 'budget_alert',
-      externalId: String(result.number),
-      payload: { ...payload, url: result.html_url },
-      success: true,
-    });
-
-    return {
-      success: true,
-      channel: 'github_issue',
-      externalId: String(result.number),
-    };
-  } catch (error) {
-    const errorMessage = sanitizeErrorMessage(error);
-
-    await logNotification(db, {
-      snapshotDate,
-      channel: 'github_issue',
-      notificationType: 'budget_alert',
-      externalId: undefined,
-      payload,
-      success: false,
-      errorMessage,
-    });
-
-    return {
-      success: false,
-      channel: 'github_issue',
-      errorMessage,
-    };
-  }
 }
 
 async function logNotification(

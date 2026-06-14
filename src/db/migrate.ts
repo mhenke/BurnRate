@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve, dirname } from 'node:path';
 import type { DbClient } from './client.js';
+import { runner } from './adapter.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -32,11 +33,12 @@ export async function runMigrations(db: DbClient): Promise<void> {
   const dialect = db.isSqlite ? 'sqlite' : 'pg';
   const statements = readMigrationSQL(dialect);
 
+  const r = runner(db);
   for (const stmt of statements) {
     if (db.isSqlite) {
-      (db as any).run(sql.raw(stmt));
+      r.run(sql.raw(stmt));
     } else {
-      await (db as any).execute(sql.raw(stmt));
+      await r.execute(sql.raw(stmt));
     }
   }
 }

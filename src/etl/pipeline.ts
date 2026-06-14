@@ -1,6 +1,5 @@
 import type { DbClient } from '../db/client.js';
 import type { GitHubClient } from '../github/client.js';
-import { normalizeRawReport } from './raw_storage.js';
 import { parseEnterpriseReportToUsers } from './parse_users.js';
 import { parseDailyUsage } from './parse_enterprise.js';
 import { parseTeamMembers, parseTeamUsage } from './parse_teams.js';
@@ -33,20 +32,14 @@ type PipelineCtx = {
 };
 
 async function storeRawReport(ctx: PipelineCtx, reportType: string, sourceUrl: string, payload: unknown): Promise<void> {
-  const rawRow = normalizeRawReport({
-    report_type: reportType,
-    report_date: ctx.day,
-    source_url: sourceUrl,
-    payload: payload as Record<string, unknown>,
-  });
-
   const t = dialectTable(ctx.db, rawReportsPg, rawReportsSq);
   await ctx.r.insert(t)
     .values({
-      reportType: rawRow.report_type,
-      reportDay: rawRow.report_date,
-      sourceUrl: rawRow.source_url,
-      payload: rawRow.payload,
+      reportType,
+      reportDay: ctx.day,
+      sourceUrl,
+      payload: payload as Record<string, unknown>,
+      ingestedAt: ctx.now,
     })
     .onConflictDoNothing();
   ctx.result.rawStored++;
@@ -184,12 +177,17 @@ async function processReportPayload(ctx: PipelineCtx, reportType: string, payloa
 }
 
 /**
- * Phase 1 observe-only pipeline:
- * 1. Fetch reports from GitHub API
- * 2. Download raw payloads via signed URLs
- * 3. Store raw payloads in raw_reports
- * 4. Parse into normalized tables
- * 5. Upsert into daily_usage, team_usage, and users
+ * Phase 1 observe-only pipeline.
+ *
+ * Fetches Copilot usage reports from the GitHub API, stores raw payloads in
+ * the `raw_reports` journal (for audit/reprocess), then parses and upserts into
+ * normalized tables (users, daily_usage, team_usage).
+ *
+ * Error strategy: individual report fetches and downloads use `.catch(() =>
+ * null)` because the pipeline must not abort on partial failures — a
+ * transient error from one report type must not block storage of the other
+ * two. Errors are collected in `result.errors` and the caller decides whether
+ * the aggregate error count warrants a non-zero exit.
  */
 export async function runObserveOnlyPipeline(
   gh: GitHubClient,

@@ -4,13 +4,24 @@ export const ALERT_CRITICAL_PCT = 110;
 
 export type AlertLevel = 'ok' | 'warning' | 'escalation' | 'critical';
 
-export function computeAlertLevel(pctOfBudget7d: number | null, pctOfBudget30d: number | null): AlertLevel {
-  const maxPct = Math.max(pctOfBudget7d ?? 0, pctOfBudget30d ?? 0);
+export function computeAlertLevel(pctA: number | null, pctB: number | null, thresholds?: {
+  warningPct?: number;
+  escalationPct?: number;
+  criticalPct?: number;
+}): AlertLevel {
+  const maxPct = Math.max(pctA ?? 0, pctB ?? 0);
+  const w = thresholds?.warningPct ?? ALERT_WARNING_PCT;
+  const e = thresholds?.escalationPct ?? ALERT_ESCALATION_PCT;
+  const c = thresholds?.criticalPct ?? ALERT_CRITICAL_PCT;
 
-  if (maxPct >= ALERT_CRITICAL_PCT) return 'critical';
-  if (maxPct >= ALERT_ESCALATION_PCT) return 'escalation';
-  if (maxPct >= ALERT_WARNING_PCT) return 'warning';
+  if (maxPct >= c) return 'critical';
+  if (maxPct >= e) return 'escalation';
+  if (maxPct >= w) return 'warning';
   return 'ok';
+}
+
+export function today(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
 export function daysAgo(n: number): string {

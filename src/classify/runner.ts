@@ -4,7 +4,7 @@ import { classifyUsers } from './engine.js';
 import type { DbClient } from '../db/client.js';
 import { sql } from 'drizzle-orm';
 import { usersPg, usersSq, classificationHistoryPg, classificationHistorySq } from '../db/schema.js';
-import { runner } from '../db/adapter.js';
+import { dbHandle } from '../db/adapter.js';
 import * as queries from '../db/queries.js';
 
 export type ClassifyOptions = {
@@ -19,65 +19,32 @@ export type ClassifyRunnerResult = {
   tierCounts: Record<string, number>;
   missingTeamCount: number;
 };
-async function writeSqliteChanges(
+async function writeChanges(
   db: DbClient,
   changes: Array<{
     githubLogin: string; consumptionTierNew: string; valueTierNew: string;
     consumptionTierOld: string | null; valueTierOld: string | null; reason: string;
   }>,
   effectiveDate: string,
-  now: string,
+  now: string | Date,
 ) {
-  const r = runner(db);
-  r.transaction((tx: any) => {
+  const r = dbHandle(db);
+  const usersTable = db.isSqlite ? usersSq : usersPg;
+  const historyTable = db.isSqlite ? classificationHistorySq : classificationHistoryPg;
+  const nowExpr = db.isSqlite ? sql`CURRENT_TIMESTAMP` : sql`now()`;
+
+  const doWrite = (tx: any) => {
     for (const change of changes) {
-      tx.update(usersSq)
+      const usersUpdate = tx.update(usersTable)
         .set({
           consumptionTier: change.consumptionTierNew,
           valueTier: change.valueTierNew,
           bucketUpdatedAt: now,
-          updatedAt: sql`CURRENT_TIMESTAMP`,
+          updatedAt: nowExpr,
         })
-        .where(sql`${usersSq.githubLogin} = ${change.githubLogin}`)
-        .run();
+        .where(sql`${usersTable.githubLogin} = ${change.githubLogin}`);
 
-      tx.insert(classificationHistorySq)
-        .values({
-          effectiveDate,
-          githubLogin: change.githubLogin,
-          consumptionTierOld: change.consumptionTierOld,
-          consumptionTierNew: change.consumptionTierNew,
-          valueTier: change.valueTierNew,
-          reason: change.reason,
-        })
-        .onConflictDoNothing()
-        .run();
-    }
-  });
-}
-
-async function writePgChanges(
-  db: DbClient,
-  changes: Array<{
-    githubLogin: string; consumptionTierNew: string; valueTierNew: string;
-    consumptionTierOld: string | null; valueTierOld: string | null; reason: string;
-  }>,
-  effectiveDate: string,
-  now: Date,
-) {
-  const r = runner(db);
-  await r.transaction(async (tx: any) => {
-    for (const change of changes) {
-      await tx.update(usersPg)
-        .set({
-          consumptionTier: change.consumptionTierNew,
-          valueTier: change.valueTierNew,
-          bucketUpdatedAt: now,
-          updatedAt: sql`now()`,
-        })
-        .where(sql`${usersPg.githubLogin} = ${change.githubLogin}`);
-
-      await tx.insert(classificationHistoryPg)
+      const historyInsert = tx.insert(historyTable)
         .values({
           effectiveDate,
           githubLogin: change.githubLogin,
@@ -87,8 +54,41 @@ async function writePgChanges(
           reason: change.reason,
         })
         .onConflictDoNothing();
+
+      if (db.isSqlite) {
+        usersUpdate.run();
+        historyInsert.run();
+      }
     }
-  });
+  };
+
+  if (db.isSqlite) {
+    r.transaction(doWrite);
+  } else {
+    await r.transaction(async (tx: any) => {
+      for (const change of changes) {
+        await tx.update(usersTable)
+          .set({
+            consumptionTier: change.consumptionTierNew,
+            valueTier: change.valueTierNew,
+            bucketUpdatedAt: now,
+            updatedAt: nowExpr,
+          })
+          .where(sql`${usersTable.githubLogin} = ${change.githubLogin}`);
+
+        await tx.insert(historyTable)
+          .values({
+            effectiveDate,
+            githubLogin: change.githubLogin,
+            consumptionTierOld: change.consumptionTierOld,
+            consumptionTierNew: change.consumptionTierNew,
+            valueTier: change.valueTierNew,
+            reason: change.reason,
+          })
+          .onConflictDoNothing();
+      }
+    });
+  }
 }
 
 /**
@@ -131,11 +131,8 @@ export async function runClassify(
   const result = classifyUsers(userCredits, currentUsers, valueConfig, options.reason);
 
   if (result.changes.length > 0) {
-    if (db.isSqlite) {
-      await writeSqliteChanges(db, result.changes, effectiveDate, new Date().toISOString());
-    } else {
-      await writePgChanges(db, result.changes, effectiveDate, new Date());
-    }
+    await writeChanges(db, result.changes, effectiveDate,
+      db.isSqlite ? new Date().toISOString() : new Date());
   }
 
   return {

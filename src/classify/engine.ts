@@ -80,56 +80,25 @@ export function classifyUsers(
   const tierCounts: Record<ConsumptionTier, number> = { low: 0, medium: 0, high: 0, extreme: 0 };
   let missingTeamCount = 0;
 
-  // Edge case: fewer than 4 users
-  if (totalUsers < 4) {
-    console.warn('Warning: fewer than 4 users, assigning all to medium consumption tier');
-    const currentUserMap = new Map(currentUsers.map(u => [u.githubLogin, u]));
-
-    for (const uc of userCredits) {
-      const current = currentUserMap.get(uc.githubLogin);
-      const team = current?.team ?? null;
-      const valueTier = resolveValueTierFn(team, valueConfig) as ValueTier;
-      const consumptionTier: ConsumptionTier = 'medium';
-
-      if (!team) missingTeamCount++;
-
-      tierCounts.medium++;
-
-      const consumptionChanged = current?.consumptionTier !== consumptionTier;
-      const valueChanged = current?.valueTier !== valueTier;
-
-      if (consumptionChanged || valueChanged) {
-        changes.push({
-          githubLogin: uc.githubLogin,
-          consumptionTierOld: current?.consumptionTier ?? null,
-          consumptionTierNew: consumptionTier,
-          valueTierOld: current?.valueTier ?? null,
-          valueTierNew: valueTier,
-          reason,
-        });
+  // For very small orgs ("fewer than 4 users"), statistics are unreliable.
+  // Instead of duplicating the classification loop, override the tier
+  // assignment function to assign everyone to "medium" uniformly.
+  const getTierFn = totalUsers < 4
+    ? (_credits: number) => {
+        console.warn('Warning: fewer than 4 users, assigning all to medium consumption tier');
+        return 'medium' as ConsumptionTier;
       }
-    }
+    : (credits: number) => {
+        const percentile = percentileFn(credits);
+        return assignConsumptionTier(percentile);
+      };
 
-    return { changes, stats: { totalUsers, changedUsers: changes.length, tierCounts, missingTeamCount } };
-  }
-
-  // Compute percentiles in O(N log N) + O(N) time
-  const sortedCredits = userCredits.map(u => u.totalCredits).sort((a, b) => a - b);
-  const percentileMap = new Map<number, number>();
-  for (let i = 0; i < totalUsers; i++) {
-    const val = sortedCredits[i];
-    // Since it's sorted, the count of elements <= val is the index + 1 of the last occurrence
-    if (i === totalUsers - 1 || sortedCredits[i + 1] !== val) {
-      percentileMap.set(val, (i + 1) / totalUsers);
-    }
-  }
-
+  // Build percentile lookup (unused when < 4 users, but cheap to compute)
+  const percentileFn = buildPercentileMap(userCredits.map(u => u.totalCredits));
   const currentUserMap = new Map(currentUsers.map(u => [u.githubLogin, u]));
 
   for (const uc of userCredits) {
-    const percentile = percentileMap.get(uc.totalCredits) ?? 0;
-    const consumptionTier = assignConsumptionTier(percentile);
-
+    const consumptionTier = getTierFn(uc.totalCredits);
     const current = currentUserMap.get(uc.githubLogin);
     const team = current?.team ?? null;
     const valueTier = resolveValueTierFn(team, valueConfig) as ValueTier;
@@ -153,4 +122,20 @@ export function classifyUsers(
   }
 
   return { changes, stats: { totalUsers, changedUsers: changes.length, tierCounts, missingTeamCount } };
+}
+
+function buildPercentileMap(credits: number[]): (credit: number) => number {
+  const n = credits.length;
+  if (n < 4) return () => 0; // unused for small orgs; ensure safe no-op
+
+  const sortedCredits = [...credits].sort((a, b) => a - b);
+  const percentileMap = new Map<number, number>();
+  for (let i = 0; i < n; i++) {
+    const val = sortedCredits[i];
+    if (i === n - 1 || sortedCredits[i + 1] !== val) {
+      percentileMap.set(val, (i + 1) / n);
+    }
+  }
+
+  return (credit: number) => percentileMap.get(credit) ?? 0;
 }
