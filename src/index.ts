@@ -6,7 +6,7 @@ import { initDb, closeDb } from './db/client.js';
 import { runMigrations } from './db/migrate.js';
 import { createGitHubClient } from './github/client.js';
 import { runObserveOnlyPipeline } from './etl/pipeline.js';
-import { computeForecast } from './forecast/engine.js';
+import { computeForecast, buildForecastInput } from './forecast/engine.js';
 import { runClassify } from './classify/runner.js';
 import { runBudgetSync } from './budget/budget_sync.js';
 import { daysAgo } from './constants.js';
@@ -134,36 +134,9 @@ export async function main(argv: string[]): Promise<void> {
     const cfg = getConfig();
     const db = initDb(cfg.postgres.url);
 
-    const dateString = daysAgo(30);
-
-    const rows = await queries.getDailyUsageSummary(db, dateString);
+    const rows = await queries.getDailyUsageSummary(db, daysAgo(30));
     const poolTotal = await queries.getLatestPoolTotal(db);
-
-    const now = new Date();
-    const firstOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-    const dailyCredits = rows.map((r: any) => Number(r.credits));
-    const creditsUsedMtd = rows
-      .filter((r: any) => r.usage_date >= firstOfMonth)
-      .reduce((sum: number, r: any) => sum + Number(r.credits), 0);
-
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    let daysElapsed = now.getDate();
-    const mtdRows = rows.filter((r: any) => r.usage_date >= firstOfMonth);
-    if (mtdRows.length > 0) {
-      const latestMtdRow = mtdRows[mtdRows.length - 1];
-      const parts = latestMtdRow.usage_date.split('-');
-      if (parts.length === 3) {
-        daysElapsed = parseInt(parts[2], 10);
-      }
-    }
-
-    const forecast = computeForecast({
-      dailyCredits,
-      poolTotal,
-      creditsUsedMtd,
-      daysInMonth,
-      daysElapsed,
-    });
+    const forecast = computeForecast(buildForecastInput(rows, poolTotal));
 
     console.log(JSON.stringify(forecast, null, 2));
 

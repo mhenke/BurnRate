@@ -6,6 +6,7 @@ import { parseTeamMembers, parseTeamUsage } from './parse_teams.js';
 import { parseSeatsToUsers } from './parse_seats.js';
 import { fetchAllSeats } from '../github/seats.js';
 import { fetchReport } from '../github/reports.js';
+import { normalizeRawReport } from './raw_storage.js';
 import { sql } from 'drizzle-orm';
 import { withRetry } from '../budget/retry.js';
 import { runner, dialectTable, dialectNow } from '../db/adapter.js';
@@ -32,13 +33,19 @@ type PipelineCtx = {
 };
 
 async function storeRawReport(ctx: PipelineCtx, reportType: string, sourceUrl: string, payload: unknown): Promise<void> {
+  const normalized = normalizeRawReport({
+    report_date: ctx.day,
+    report_type: reportType,
+    source_url: sourceUrl,
+    payload: payload as Record<string, unknown>,
+  });
   const t = dialectTable(ctx.db, rawReportsPg, rawReportsSq);
   await ctx.r.insert(t)
     .values({
-      reportType,
-      reportDay: ctx.day,
-      sourceUrl,
-      payload: payload as Record<string, unknown>,
+      reportType: normalized.report_type,
+      reportDay: normalized.report_date,
+      sourceUrl: normalized.source_url,
+      payload: normalized.payload,
       ingestedAt: ctx.now,
     })
     .onConflictDoNothing();

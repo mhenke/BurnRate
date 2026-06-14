@@ -4,7 +4,7 @@ import { classifyUsers } from './engine.js';
 import type { DbClient } from '../db/client.js';
 import { sql } from 'drizzle-orm';
 import { usersPg, usersSq, classificationHistoryPg, classificationHistorySq } from '../db/schema.js';
-import { dialectDb, dialectNow } from '../db/adapter.js';
+import { dialectDb, dialectTable, dialectNow } from '../db/adapter.js';
 import * as queries from '../db/queries.js';
 
 export type ClassifyOptions = {
@@ -21,73 +21,82 @@ export type ClassifyRunnerResult = {
   tierCounts: Record<string, number>;
   missingTeamCount: number;
 };
+
+type TierChangeRow = {
+  githubLogin: string;
+  consumptionTierNew: string;
+  valueTierNew: string;
+  consumptionTierOld: string | null;
+  valueTierOld: string | null;
+  reason: string;
+};
+
+/**
+ * Build the ORM update and insert builders for a single tier-change row.
+ * Returns the two builders without executing them, so the caller can run them
+ * inside either a sync (SQLite) or async (PG) transaction wrapper.
+ */
+function buildWriteOps(
+  tx: any,
+  change: TierChangeRow,
+  usersTable: typeof usersPg | typeof usersSq,
+  historyTable: typeof classificationHistoryPg | typeof classificationHistorySq,
+  effectiveDate: string,
+  now: string | Date,
+  nowExpr: ReturnType<typeof dialectNow>,
+) {
+  const usersUpdate = tx.update(usersTable)
+    .set({
+      consumptionTier: change.consumptionTierNew,
+      valueTier: change.valueTierNew,
+      bucketUpdatedAt: now,
+      updatedAt: nowExpr,
+    })
+    .where(sql`${usersTable.githubLogin} = ${change.githubLogin}`);
+
+  const historyInsert = tx.insert(historyTable)
+    .values({
+      effectiveDate,
+      githubLogin: change.githubLogin,
+      consumptionTierOld: change.consumptionTierOld,
+      consumptionTierNew: change.consumptionTierNew,
+      valueTier: change.valueTierNew,
+      reason: change.reason,
+    })
+    .onConflictDoNothing();
+
+  return { usersUpdate, historyInsert };
+}
+
 async function writeChanges(
   db: DbClient,
-  changes: Array<{
-    githubLogin: string; consumptionTierNew: string; valueTierNew: string;
-    consumptionTierOld: string | null; valueTierOld: string | null; reason: string;
-  }>,
+  changes: TierChangeRow[],
   effectiveDate: string,
   now: string | Date,
 ) {
   const r = dialectDb(db);
-  const usersTable = db.isSqlite ? usersSq : usersPg;
-  const historyTable = db.isSqlite ? classificationHistorySq : classificationHistoryPg;
+  const usersTable = dialectTable(db, usersPg, usersSq);
+  const historyTable = dialectTable(db, classificationHistoryPg, classificationHistorySq);
   const nowExpr = dialectNow(db);
 
-  const doWrite = (tx: any) => {
-    for (const change of changes) {
-      const usersUpdate = tx.update(usersTable)
-        .set({
-          consumptionTier: change.consumptionTierNew,
-          valueTier: change.valueTierNew,
-          bucketUpdatedAt: now,
-          updatedAt: nowExpr,
-        })
-        .where(sql`${usersTable.githubLogin} = ${change.githubLogin}`);
-
-      const historyInsert = tx.insert(historyTable)
-        .values({
-          effectiveDate,
-          githubLogin: change.githubLogin,
-          consumptionTierOld: change.consumptionTierOld,
-          consumptionTierNew: change.consumptionTierNew,
-          valueTier: change.valueTierNew,
-          reason: change.reason,
-        })
-        .onConflictDoNothing();
-
-      if (db.isSqlite) {
+  if (db.isSqlite) {
+    r.transaction((tx: any) => {
+      for (const change of changes) {
+        const { usersUpdate, historyInsert } = buildWriteOps(
+          tx, change, usersTable, historyTable, effectiveDate, now, nowExpr,
+        );
         usersUpdate.run();
         historyInsert.run();
       }
-    }
-  };
-
-  if (db.isSqlite) {
-    r.transaction(doWrite);
+    });
   } else {
     await r.transaction(async (tx: any) => {
       for (const change of changes) {
-        await tx.update(usersTable)
-          .set({
-            consumptionTier: change.consumptionTierNew,
-            valueTier: change.valueTierNew,
-            bucketUpdatedAt: now,
-            updatedAt: nowExpr,
-          })
-          .where(sql`${usersTable.githubLogin} = ${change.githubLogin}`);
-
-        await tx.insert(historyTable)
-          .values({
-            effectiveDate,
-            githubLogin: change.githubLogin,
-            consumptionTierOld: change.consumptionTierOld,
-            consumptionTierNew: change.consumptionTierNew,
-            valueTier: change.valueTierNew,
-            reason: change.reason,
-          })
-          .onConflictDoNothing();
+        const { usersUpdate, historyInsert } = buildWriteOps(
+          tx, change, usersTable, historyTable, effectiveDate, now, nowExpr,
+        );
+        await usersUpdate;
+        await historyInsert;
       }
     });
   }

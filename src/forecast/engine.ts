@@ -12,6 +12,54 @@ export type ForecastInput = {
   thresholds?: Pick<BurnrateThresholds['forecast'], 'trendSlope' | 'anomalyZscore'> & { alert: BurnrateThresholds['alert'] };
 };
 
+/** Minimal shape of a daily-usage summary row returned by getDailyUsageSummary(). */
+export type DailyUsageSummaryRow = {
+  usage_date: string;
+  credits: string | number;
+};
+
+/**
+ * Build a ForecastInput from raw daily-usage summary rows and the current pool total.
+ *
+ * Encapsulates all date math (firstOfMonth, daysElapsed, daysInMonth) and
+ * credit aggregation so the CLI dispatcher does not need to reason about
+ * calendar arithmetic. The reference date defaults to today (UTC).
+ *
+ * @param rows     Rows returned by getDailyUsageSummary(), ordered by usage_date ascending.
+ * @param poolTotal Current pool credit limit from getLatestPoolTotal().
+ * @param now      Optional reference date for testing; defaults to new Date().
+ */
+export function buildForecastInput(
+  rows: DailyUsageSummaryRow[],
+  poolTotal: number,
+  now: Date = new Date(),
+): ForecastInput {
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const firstOfMonth = `${year}-${month}-01`;
+
+  const dailyCredits = rows.map((r) => Number(r.credits));
+  const creditsUsedMtd = rows
+    .filter((r) => r.usage_date >= firstOfMonth)
+    .reduce((sum, r) => sum + Number(r.credits), 0);
+
+  const daysInMonth = new Date(year, now.getMonth() + 1, 0).getDate();
+
+  // Use the day of the latest MTD row as daysElapsed so we stay consistent
+  // with the ingested data rather than the wall-clock day (which may differ
+  // from the latest available report day).
+  let daysElapsed = now.getDate();
+  const mtdRows = rows.filter((r) => r.usage_date >= firstOfMonth);
+  if (mtdRows.length > 0) {
+    const parts = mtdRows[mtdRows.length - 1].usage_date.split('-');
+    if (parts.length === 3) {
+      daysElapsed = parseInt(parts[2], 10);
+    }
+  }
+
+  return { dailyCredits, poolTotal, creditsUsedMtd, daysInMonth, daysElapsed };
+}
+
 export type ForecastResult = {
   rate7d: number;
   rate30d: number;

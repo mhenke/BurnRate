@@ -54,6 +54,17 @@ function parseNumeric(value: string | number | null): number | null {
 }
 
 /**
+ * Compute how much of the current calendar month has elapsed as a percentage.
+ *
+ * @param now Reference date; defaults to today.
+ * @returns A value in [0, 100].
+ */
+function computePctElapsed(now: Date = new Date()): number {
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  return Math.round((now.getDate() / daysInMonth) * 10000) / 100;
+}
+
+/**
  * Map internal alert levels to notification-friendly levels.
  * Slack/GitHub only recognize "info", "warning", "critical", so we
  * collapse "ok" → "info" and "escalation" → "critical" for the
@@ -115,6 +126,7 @@ async function dispatchNotifications(
   totalBudget: number,
   budgetUsed: number,
   pctUsed: number,
+  pctElapsed: number,
   forecast7d: number | null,
   forecast30d: number | null,
   slackWebhookUrl: string | undefined,
@@ -140,7 +152,7 @@ async function dispatchNotifications(
     const slackConfig: SlackConfig = { webhookUrl: slackWebhookUrl };
     const slackResult = await sendSlackNotification(db, slackConfig, {
       totalBudget, budgetUsed, budgetRemaining, pctUsed,
-      pctElapsed: 0, forecast7d, forecast30d, alertLevel: notifyLevel,
+      pctElapsed, forecast7d, forecast30d, alertLevel: notifyLevel,
     }, snapshotDate);
     slackNotified = slackResult.success;
     if (!slackResult.success) {
@@ -151,7 +163,7 @@ async function dispatchNotifications(
   const githubConfig: GitHubIssueConfig = { owner: issueRepoOwner, repo: issueRepoName, token: issueRepoToken };
   const githubResult = await sendGitHubIssue(db, githubConfig, {
     totalBudget, budgetUsed, budgetRemaining, pctUsed,
-    pctElapsed: 0, forecast7d, forecast30d, alertLevel: notifyLevel,
+    pctElapsed, forecast7d, forecast30d, alertLevel: notifyLevel,
   }, snapshotDate);
   issueNotified = githubResult.success;
   if (!githubResult.success) {
@@ -172,6 +184,7 @@ export async function runBudgetSync(config: BudgetSyncConfig): Promise<BudgetSyn
   const errors: string[] = [];
   const snapshotDate = today();
   const yesterdayDate = daysAgo(1);
+  const pctElapsed = computePctElapsed();
 
   const { billing, poolSnapshot, note } = await fetchBudgetData(github, db, config.fetchOptions);
   if (note) errors.push(note);
@@ -185,7 +198,7 @@ export async function runBudgetSync(config: BudgetSyncConfig): Promise<BudgetSyn
       budgetUsed: stats.budgetUsed,
       budgetRemaining: stats.totalBudget - stats.budgetUsed,
       pctUsed: stats.pctUsed,
-      pctElapsed: 0,
+      pctElapsed,
       forecast7d: stats.forecast7d,
       forecast30d: stats.forecast30d,
       pctOfBudget7d: stats.pctOfBudget7d,
@@ -204,7 +217,7 @@ export async function runBudgetSync(config: BudgetSyncConfig): Promise<BudgetSyn
     : await dispatchNotifications(
         db, snapshotDate, stats.alertLevel, yesterdayAlertLevel,
         stats.totalBudget, stats.budgetUsed, stats.pctUsed,
-        stats.forecast7d, stats.forecast30d,
+        pctElapsed, stats.forecast7d, stats.forecast30d,
         slackWebhookUrl, issueRepoOwner, issueRepoName, issueRepoToken,
       );
   errors.push(...notificationErrors);
