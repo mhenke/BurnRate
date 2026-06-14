@@ -42,7 +42,7 @@
             <p class="eyebrow">GitHub Copilot visibility</p>
             <h1>Know your Copilot burn before GitHub does.</h1>
             <p class="lede">
-              BurnRate ingests usage reports, stores raw JSON for audit history, and turns daily data into simple forecasts, budget alerts, and interactive chat queries. Observe only. No budget writes.
+              BurnRate ingests Copilot usage reports, stores the raw JSON for audit history, and turns daily data into forecasts and budget alerts. Observe only. No budget writes.
             </p>
             <div class="button-row">
               <a class="button button-primary" href="#quick-start">Quick start</a>
@@ -75,9 +75,9 @@
         <div class="container section-shell">
           <div class="section-heading">
             <p class="eyebrow">What it does</p>
-            <h2>Built for engineers watching Copilot spend.</h2>
+            <h2>For engineers watching Copilot spend.</h2>
             <p>
-              The interface stays dense and direct. It shows the reports, the forecast, and the audit trail without turning the page into a marketing template.
+              Shows the reports, the forecast, and the audit trail. No marketing template.
             </p>
           </div>
 
@@ -85,7 +85,7 @@
             <article class="panel feature-card feature-card-wide">
               <div class="feature-card-copy">
                 <h3>Raw-first storage</h3>
-                <p>Stores the source payload before parsing so schema changes do not erase history.</p>
+                <p>Stores the source payload before parsing. Schema changes do not erase history.</p>
               </div>
               <ul class="feature-notes" aria-label="Raw-first storage highlights">
                 <li>Raw JSON preserved intact</li>
@@ -94,11 +94,11 @@
             </article>
             <article class="panel feature-card">
               <h3>Forecasts</h3>
-              <p>Summarizes Copilot usage patterns into simple burn projections and month-end risk.</p>
+              <p>Burn projections and month-end risk from actual usage.</p>
             </article>
             <article class="panel feature-card">
               <h3>Budget alerts</h3>
-              <p>Tracks thresholds and notifications without mutating GitHub budget settings.</p>
+              <p>Thresholds and notifications. No writes to GitHub budget settings.</p>
             </article>
             <article class="panel feature-card">
               <h3>Dual databases</h3>
@@ -107,11 +107,11 @@
             <article class="panel feature-card feature-card-wide">
               <div class="feature-card-copy">
                 <h3>Copilot Agent Skills</h3>
-                <p>Trigger forecasts, user classifications, and budget sync checks directly using natural language in your chat interface.</p>
+                <p>Trigger forecasts, user classifications, and budget sync checks from natural language in your chat interface.</p>
               </div>
               <ul class="feature-notes" aria-label="Copilot Agent Skills features">
                 <li>On-demand chat commands</li>
-                <li>Seamless CLI script triggers</li>
+                <li>Triggers CLI scripts</li>
               </ul>
             </article>
           </div>
@@ -123,8 +123,8 @@
         <div class="container section-shell">
           <div class="section-heading">
             <p class="eyebrow">Quick start</p>
-            <h2>Install, configure, ingest.</h2>
-            <p>Everything below comes straight from the repository workflow and uses the same commands the CLI expects.</p>
+            <h2>Install, configure, run.</h2>
+            <p>Same commands the CLI expects. Works with Postgres or SQLite.</p>
           </div>
 
           <div class="content-grid">
@@ -172,8 +172,8 @@ $ npm run forecast</code></pre>
         <div class="container section-shell">
           <div class="section-heading">
             <p class="eyebrow">Architecture</p>
-            <h2>Traceable from GitHub API to forecast.</h2>
-            <p>The pipeline keeps raw history first, then parsing and aggregation follow in separate steps.</p>
+            <h2>From GitHub API to forecast.</h2>
+            <p>Raw history first, then parsing and aggregation in separate steps.</p>
           </div>
 
           <div class="panel architecture-panel">
@@ -192,8 +192,8 @@ $ npm run forecast</code></pre>
         <div class="container section-shell">
           <div class="section-heading">
             <p class="eyebrow">Configuration</p>
-            <h2>Minimal surface area, explicit inputs.</h2>
-            <p>The site stays close to the real runtime configuration so the docs and the code agree.</p>
+            <h2>Few env vars, one config file.</h2>
+            <p>Matches the real runtime config so docs and code agree.</p>
           </div>
 
           <div class="content-grid content-grid-wide">
@@ -231,7 +231,7 @@ $ npm run forecast</code></pre>
               <div style="display: flex; gap: 1rem; align-items: start;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 0.2rem;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
                 <div>
-                  <h3 style="color: var(--ink); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">Observe-Only & Local-First Security</h3>
+                  <h3 style="color: var(--ink); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">Observe-only, local-first security</h3>
                   <p style="margin: 0; font-size: 0.9375rem; line-height: 1.5; color: var(--ink-muted);">
                     BurnRate is designed with zero-trust in mind. Your <code>GITHUB_TOKEN</code> and Copilot usage data are processed <strong>locally within your own environment</strong> and stored in your self-hosted database. BurnRate never transmits your tokens or raw payload logs to any external server, and it performs no write operations back to GitHub.
                   </p>
@@ -246,7 +246,7 @@ $ npm run forecast</code></pre>
         <div class="container section-shell">
           <div class="section-heading">
             <p class="eyebrow">Commands & Skills</p>
-            <h2>The CLI and chat agent surfaces stay small and explicit.</h2>
+            <h2>The CLI and chat surfaces stay small.</h2>
           </div>
 
           <div class="panel prose-card">
@@ -275,7 +275,7 @@ $ npm run forecast</code></pre>
       <div class="container footer-inner">
         <div>
           <strong>BurnRate</strong>
-          <p>Observe-only Copilot spend visibility for engineering leaders.</p>
+          <p>Observe-only Copilot spend visibility for engineering teams.</p>
         </div>
         <div class="footer-links">
           <a href="https://github.com/mhenke/BurnRate" target="_blank" rel="noopener noreferrer">GitHub</a>

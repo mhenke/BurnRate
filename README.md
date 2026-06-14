@@ -1,6 +1,6 @@
 # BurnRate
 
-> **Observe-only GitHub Copilot budget monitoring.** Daily ingestion, raw payload storage, burn forecasts, and budget alerts, without enforcement or automation.
+> Observe-only GitHub Copilot budget monitoring. Daily ingestion, raw payload storage, burn forecasts, and budget alerts. No enforcement or automation.
 
 **Site:** https://mhenke.github.io/BurnRate/
 
@@ -11,81 +11,67 @@
 
 ---
 
-## What Problem Does This Solve?
+## The gap
 
-GitHub provides enforcement controls for Copilot billing — enterprise budgets, cost-center budgets, user-level hard caps, spending limits, and static threshold alerts at 75%/90%/100%. What GitHub does not provide is **observability, forecasting, attribution, and automation** around your Copilot AI Credit consumption.
+GitHub ships enforcement controls for Copilot billing: enterprise budgets, cost-center budgets, user-level hard caps, spending limits, and static alerts at 75/90/100 percent. What it does not ship is observability, forecasting, attribution, or automation around Copilot AI Credit consumption.
 
-A concrete example: GitHub's included-usage alerts cover Actions, Packages, Codespaces, and LFS — but not Copilot AI Credits. Enterprises monitoring AI spend get no "90% of included usage consumed" alert for their Copilot pool.
+An example: GitHub's included-usage alerts cover Actions, Packages, Codespaces, and LFS. Copilot AI Credits are not in that list. If you monitor AI spend, you get no "90% of included usage consumed" alert for your Copilot pool.
 
 BurnRate fills that gap:
 
-- Daily ingestion of Copilot usage reports from the GitHub API
-- Raw payload storage protects against schema drift
-- Simple forecasts based on actual usage patterns
-- Budget alerts when approaching limits (Phase 3)
-- Slack and GitHub Issue notifications (Phase 3)
-- Interactive chat queries using Copilot Agent Skills
-- Zero writes to GitHub. This is monitoring, not enforcement
+- Ingests Copilot usage reports from the GitHub API every day
+- Stores raw payloads so schema changes do not erase history
+- Produces forecasts from actual usage patterns
+- Alerts when budgets approach limits (Phase 3)
+- Pushes to Slack and GitHub Issues (Phase 3)
+- Supports interactive chat queries via Copilot Agent Skills
+- Writes nothing to GitHub. Monitoring, not enforcement.
 
-
-## Quick Start
+## Quick start
 
 ### Prerequisites
 
 - Node.js 22+
-- PostgreSQL (or SQLite for local dev)
-- GitHub Personal Access Token with `manage_billing:copilot` + `read:org` (org-level) or `read:enterprise` (enterprise-level) scope
+- PostgreSQL or SQLite for local dev
+- GitHub PAT with `manage_billing:copilot` + `read:org` (org) or `read:enterprise` (enterprise) scope
 
 ### Installation
 
 ```bash
-# Clone the repository
 git clone https://github.com/mhenke/BurnRate.git
 cd BurnRate
-
-# Install dependencies
 npm install
-
-# Copy environment template
 cp .env.sample .env
+# edit .env with your credentials
 
-# Edit .env with your credentials
-# DATABASE_URL=postgresql://...
-# GITHUB_TOKEN=ghp_...
-# GITHUB_ENTERPRISE=your-enterprise
-# GITHUB_ORG=your-org
-
-# Run migrations
 npm run migrate
-
-# Run daily ingestion
 npm run ingest
-
-> To replay a previous day (e.g., after an outage) run `npm run etl -- --day YYYY-MM-DD` to backfill that date.
 ```
 
-### Available Commands
+To backfill a previous day: `npm run etl -- --day YYYY-MM-DD`.
+
+### Available commands
 
 | Command | Description |
 |---------|-------------|
-| `npm run migrate` | Create or update the local database schema (PostgreSQL or SQLite) |
-| `npm run ingest` | Fetch and store today's Copilot reports (alias for `etl`) |
-| `npm run etl` | Fetch reports for a specific day (add `-- --day YYYY-MM-DD` to backfill an earlier date) |
+| `npm run migrate` | Create or update the database schema |
+| `npm run ingest` | Fetch and store today's Copilot reports |
+| `npm run etl` | Fetch reports for a specific day (use `--day YYYY-MM-DD` to backfill) |
 | `npm run forecast` | Generate burn forecasts from stored data |
-| `npm run classify` | Classify users by consumption/value tiers |
+| `npm run classify` | Classify users by consumption and value tiers |
 | `npm run budget-sync` | Sync budget limits and send alerts |
-| `npm test` | Run test suite |
+| `npm test` | Run the test suite |
 | `npm run build` | Compile TypeScript |
 
 ### Local Postgres (optional)
 
-BurnRate ships with `docker-compose.yml` so you can start a Postgres 14 instance locally. In a separate shell run:
+BurnRate ships a `docker-compose.yml` for Postgres 14. In a separate shell:
 
 ```bash
 docker compose up -d db
 ```
 
-Then point the CLI at it:
+Then:
 
 ```bash
 export DATABASE_URL=postgresql://burnrate:changeme@localhost:5432/burnrate
@@ -93,18 +79,16 @@ npm run migrate
 npm run ingest
 ```
 
-This mirrors the Quick Start path without requiring an existing Postgres server.
-
 ### Copilot Agent Skills
 
-BurnRate packages Copilot Agent Skills for chat interfaces (like Copilot Chat or Claude Code). Administrators can trigger CLI commands and inspect results using natural language:
+The repo includes Copilot Agent Skills for chat interfaces like Copilot Chat and Claude Code. Admins can run CLI commands in natural language:
 
-- **`@burnrate /forecast`**: Run on-demand monthly usage forecasts and view projected pool utilization.
-- **`@burnrate /classify`**: Run user tier classification on-demand (supports optional flags `--value-config` and `--report`).
-- **`@burnrate /budget-sync`**: Synchronize user-level budgets and check Slack/Issue alert statuses (supports optional flags `--dry-run` and `--json-logs`).
-- **`@burnrate /etl`**: Manually trigger daily usage ingestion and raw report storage.
+- `@burnrate /forecast`: on-demand monthly usage forecasts
+- `@burnrate /classify`: run user tier classification (supports `--value-config` and `--report`)
+- `@burnrate /budget-sync`: sync user budgets and check alert statuses (supports `--dry-run` and `--json-logs`)
+- `@burnrate /etl`: trigger daily usage ingestion
 
-*Skills are located in the [skills/](file:///home/mhenke/Projects/BurnRate/skills) directory and declared in [plugin.json](file:///home/mhenke/Projects/BurnRate/plugin.json).*
+Skills live in [skills/](file:///home/mhenke/Projects/BurnRate/skills) and are declared in [plugin.json](file:///home/mhenke/Projects/BurnRate/plugin.json).
 
 ## Architecture
 
@@ -122,35 +106,35 @@ BurnRate packages Copilot Agent Skills for chat interfaces (like Copilot Chat or
                         └──────────────┘
 ```
 
-### Key Design Decisions
+### Key design decisions
 
-1. **Raw-first storage**: Raw JSON payloads are stored before parsing. This protects historical data from schema changes.
+1. **Raw-first storage.** JSON payloads are stored before parsing. Schema changes do not corrupt historical data.
 
-2. **Dual database support**: PostgreSQL for production, SQLite for local development and testing. All queries use Drizzle ORM with `isSqlite` branching where needed.
+2. **Dual database support.** PostgreSQL for production, SQLite for local dev. Queries use Drizzle ORM with `isSqlite` branching where needed.
 
-3. **Modular ETL**: API calls in `src/github/`, parsing in `src/etl/`, database writes in `src/db/`. Strict separation.
+3. **Modular ETL.** API calls in `src/github/`, parsing in `src/etl/`, database writes in `src/db/`. Strict separation.
 
-4. **Observe-only**: Phase 1-3 read from GitHub but never write budget limits or enforcement rules.
+4. **Observe-only.** Phases 1-3 read from GitHub but never write budget limits or enforcement rules.
 
-## Project Phases
+## Project phases
 
 | Phase | Status | Description |
 |-------|--------|-------------|
 | **Phase 1** | ✅ Complete | Observe-only ETL pipeline with raw storage |
-| **Phase 2** | ✅ Complete | User classification by consumption/value tiers (weekly recalc + value tiers) |
-| **Phase 3** | ✅ Complete | Budget sync + notification hub (Slack, GitHub Issues) |
+| **Phase 2** | ✅ Complete | User classification by consumption and value tiers |
+| **Phase 3** | ✅ Complete | Budget sync and notification hub (Slack, GitHub Issues) |
 | **Phase 4** | 📋 Planned | ULB enforcement with GitHub Budgets API writes |
 
 ## Configuration
 
-### Environment Variables
+### Environment variables
 
 ```bash
 # Database
 DATABASE_URL=postgresql://user:pass@localhost:5432/burnrate
 
 # GitHub API
-GITHUB_TOKEN=ghp_xxx  # Classic PAT with manage_billing:copilot + read:org (org) or read:enterprise (enterprise)
+GITHUB_TOKEN=ghp_xxx
 GITHUB_ENTERPRISE=my-company
 GITHUB_ORG=my-org
 
@@ -159,11 +143,11 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/...
 BUDGET_ISSUE_REPO=owner/repo
 
 # Optional
-DRY_RUN=true           # Don't write to database or send notifications
-JSON_LOGS=true         # Output structured JSON logs
+DRY_RUN=true           # skip DB writes and notifications
+JSON_LOGS=true         # output structured JSON
 ```
 
-### Value Tier Configuration
+### Value tier configuration
 
 Create `config/value_config.yml` to define team-based value tiers:
 
@@ -182,37 +166,32 @@ teams:
 ## Testing
 
 ```bash
-# Run all tests
 npm test
-
-# Run with coverage
 npm test -- --coverage
-
-# Run specific test file
 npx vitest run tests/etl/pipeline.test.ts
 ```
 
-Test coverage target: **80%** for parsers and forecasting calculations.
+Coverage target: 80% for parsers and forecasting calculations.
 
 ## GitHub Actions
 
-BurnRate includes automated workflows:
+Automated workflows:
 
-- **`nightly-etl.yml`**: Runs daily at 1 AM UTC — fetches and stores usage reports
-- **`daily-forecast.yml`**: Runs daily at 8 AM UTC — computes burn forecasts
-- **`weekly-classify.yml`**: Runs Monday at 6 AM UTC — classifies users by consumption/value tiers
-- **`daily-budget-check.yml`**: Runs Monday-Friday at 9 AM UTC — syncs budgets and sends alerts
+- `nightly-etl.yml`: daily at 1 AM UTC, fetches and stores usage reports
+- `daily-forecast.yml`: daily at 8 AM UTC, computes burn forecasts
+- `weekly-classify.yml`: Monday at 6 AM UTC, classifies users
+- `daily-budget-check.yml`: Monday-Friday at 9 AM UTC, syncs budgets and sends alerts
 
-All workflows can be triggered manually via `workflow_dispatch`.
+All workflows support `workflow_dispatch` for manual triggering.
 
-## Database Schema
+## Database schema
 
-### Core Tables
+### Core tables
 
 | Table | Purpose |
 |-------|---------|
 | `raw_reports` | Raw JSON payloads from GitHub API |
-| `users` | User profiles with team/value tier assignments |
+| `users` | User profiles with team and value tier assignments |
 | `daily_usage` | Per-user daily usage metrics |
 | `team_usage` | Aggregated team-level usage |
 | `pool_snapshots` | Daily pool-level snapshots with forecasts |
@@ -220,53 +199,49 @@ All workflows can be triggered manually via `workflow_dispatch`.
 | `notification_log` | Notification dispatch history (Phase 3) |
 | `classification_history` | User classification changes over time |
 
-See `src/db/schema.ts` for full schema definitions.
+Full schema definitions live in `src/db/schema.ts`.
 
 ## Security
 
-- **No hardcoded secrets**: All credentials via environment variables or `dotenv`
-- **Parameterized queries**: Drizzle ORM prevents SQL injection by default
-- **Token scoping**: GitHub PAT requires `manage_billing:copilot` + `read:org` (org-level) or `read:enterprise` (enterprise-level). No write permissions needed for observe-only phases.
-- **Audit trail**: Raw payloads preserved for compliance and debugging
-- **SSRF Prevention**: `fetchSignedUrl` strictly validates that targets are HTTPS and limited to a whitelisted set of GitHub API and S3 CDN domains
-- **Config Syntax Injection Protection**: Configuration YAML parsing happens before environment variable expansion, ensuring environment variable payloads cannot inject or override configuration keys
-
+- No hardcoded secrets. All credentials via environment variables or dotenv.
+- Parameterized queries. Drizzle ORM prevents SQL injection by default.
+- Token scoping. GitHub PAT requires `manage_billing:copilot` plus `read:org` (org) or `read:enterprise` (enterprise). No write permissions needed for observe-only phases.
+- Audit trail. Raw payloads are preserved for compliance and debugging.
+- SSRF prevention. `fetchSignedUrl` validates that targets are HTTPS and whitelisted to GitHub API and S3 CDN domains.
+- Config injection protection. YAML parsing happens before env var expansion, so payloads cannot inject config keys.
 
 ## Troubleshooting
 
-### Common Issues
-
 **"GitHub API returned 403"**
-- Verify your PAT has `manage_billing:copilot` + `read:org` (org) or `read:enterprise` (enterprise) scope
-- Check enterprise slug is correct
-- Ensure your account has billing admin access
+- Verify your PAT has the right scope
+- Check the enterprise slug
+- Confirm your account has billing admin access
 
 **"Database connection failed"**
-- For PostgreSQL: verify connection string format
-- For SQLite: ensure directory is writable
-- Run `npm run migrate` before first use
+- PostgreSQL: verify the connection string format
+- SQLite: make sure the directory is writable
+- Run `npm run migrate` first
 
 **"No data in reports"**
-- Confirm enterprise has Copilot Business/Enterprise
-- Check that users have activity in the selected date range
-- Review `raw_reports` table for API response payloads
+- Confirm the enterprise has Copilot Business or Enterprise
+- Check that users have activity in the date range
+- Look at `raw_reports` for API response payloads
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-MIT — see [LICENSE](LICENSE) for details.
+MIT. See [LICENSE](LICENSE).
 
 ## Acknowledgments
 
-Built with:
-- [Drizzle ORM](https://orm.drizzle.team/) — Type-safe SQL
-- [Vitest](https://vitest.dev/) — Fast unit testing
-- [Octokit](https://github.com/octokit/octokit.js) — GitHub API client
-- [GitHub Actions](https://github.com/features/actions) — CI/CD
+- [Drizzle ORM](https://orm.drizzle.team/)
+- [Vitest](https://vitest.dev/)
+- [Octokit](https://github.com/octokit/octokit.js)
+- [GitHub Actions](https://github.com/features/actions)
 
 ---
 
-**BurnRate** · Know your burn before GitHub does.
+**BurnRate** - Know your burn before GitHub does.
