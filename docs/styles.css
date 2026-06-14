@@ -640,7 +640,7 @@ section[id] {
     transition: opacity var(--transition-fast), transform var(--transition-fast), visibility var(--transition-fast);
   }
 
-  .site-nav[data-open='true'] {
+  .site-nav[data-open] {
     opacity: 1;
     pointer-events: auto;
     transform: translateY(0);
