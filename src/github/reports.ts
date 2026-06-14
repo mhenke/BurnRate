@@ -5,6 +5,9 @@ export type ReportType =
   | 'users-28-day'
   | 'enterprise-user-teams-1-day';
 
+/**
+ * Build the GitHub API URL for a Copilot usage report by type and date.
+ */
 export function buildReportUrl(
   enterprise: string,
   reportType: ReportType,
@@ -18,6 +21,9 @@ export function buildReportUrl(
   return base;
 }
 
+/**
+ * Fetch a Copilot usage report from the GitHub API and return its data.
+ */
 export async function fetchReport(
   client: { octokit: any; enterprise: string; fetchSignedUrl: <T>(url: string) => Promise<T> },
   reportType: ReportType,

@@ -5,6 +5,9 @@ export type RetryOptions = {
   delayFn?: (ms: number) => Promise<void>;
 };
 
+/**
+ * Retry an async operation with exponential backoff delays.
+ */
 export async function withRetry<T>(
   fn: () => Promise<T>,
   options: RetryOptions,

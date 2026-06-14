@@ -19,6 +19,10 @@ export type ClassifyRunnerResult = {
   missingTeamCount: number;
 };
 
+/**
+ * Run the classification pipeline: load usage data, classify users by
+ * consumption and value tiers, write changes to the database.
+ */
 export async function runClassify(
   db: DbClient,
   options: ClassifyOptions,

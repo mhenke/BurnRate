@@ -12,6 +12,9 @@ let db: DbClient | null = null;
 let pgPool: pg.Pool | null = null;
 let sqliteDb: Database.Database | null = null;
 
+/**
+ * Initialize a database connection. Detects PostgreSQL vs SQLite from the URL scheme.
+ */
 export function initDb(connectionString: string): DbClient {
   if (connectionString.startsWith('postgres') || connectionString.startsWith('postgresql')) {
     const poolSize = parseInt(process.env.DB_POOL_SIZE ?? '5', 10);
@@ -25,11 +28,17 @@ export function initDb(connectionString: string): DbClient {
   return db;
 }
 
+/**
+ * Return the active database client. Throws if not initialized.
+ */
 export function getDb(): DbClient {
   if (!db) throw new Error('Database not initialized. Call initDb() first.');
   return db;
 }
 
+/**
+ * Close the database connection and clean up resources.
+ */
 export async function closeDb(): Promise<void> {
   if (pgPool) {
     await pgPool.end();

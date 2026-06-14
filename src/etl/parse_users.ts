@@ -18,16 +18,16 @@ export function parseEnterpriseReportToUsers(
   report: { report_day: string; data: Array<{ github_login: string } & Record<string, unknown>> },
 ): UserRow[] {
   if (!report || !Array.isArray(report.data)) return [];
-  return report.data.map((entry: any) => ({
-    githubLogin: entry.github_login,
+  return report.data.map((userRow: any) => ({
+    githubLogin: userRow.github_login,
     enterprise,
     org,
-    displayName: entry.display_name ?? null,
-    email: entry.email ?? null,
-    team: entry.team ?? null,
-    seatCreatedAt: entry.seat_created_at ?? null,
-    lastActivityAt: entry.last_activity_at ?? null,
-    consumptionTier: entry.consumption_tier ?? null,
-    valueTier: entry.value_tier ?? null,
+    displayName: userRow.display_name ?? null,
+    email: userRow.email ?? null,
+    team: userRow.team ?? null,
+    seatCreatedAt: userRow.seat_created_at ?? null,
+    lastActivityAt: userRow.last_activity_at ?? null,
+    consumptionTier: userRow.consumption_tier ?? null,
+    valueTier: userRow.value_tier ?? null,
   }));
 }

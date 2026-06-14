@@ -8,6 +8,9 @@ export type GitHubClient = {
   fetchSignedUrl: <T>(url: string) => Promise<T>;
 };
 
+/**
+ * Create a GitHub API client with Octokit, configured for the target org or enterprise.
+ */
 export function createGitHubClient(token: string, enterprise: string, org: string): GitHubClient {
   const octokit = new Octokit({
     auth: token,

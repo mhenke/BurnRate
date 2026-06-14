@@ -83,7 +83,7 @@ export async function runObserveOnlyPipeline(
     }
 
     for (const link of reportData.download_links) {
-      const rawPayload = await withRetry(() => gh.fetchSignedUrl<any>(link), {
+      const reportPayload = await withRetry(() => gh.fetchSignedUrl<any>(link), {
         maxAttempts: 3,
         delays: [1000, 2000, 4000],
         onRetry: (attempt, err) => {
@@ -96,14 +96,14 @@ export async function runObserveOnlyPipeline(
         return null;
       });
 
-      if (!rawPayload) continue;
+      if (!reportPayload) continue;
 
       // Store raw report
       const rawRow = normalizeRawReport({
         report_type: reportType,
         report_date: day,
         source_url: link,
-        payload: rawPayload,
+        payload: reportPayload,
       });
 
       await (db as any).insert(T.rawReports)
@@ -118,7 +118,7 @@ export async function runObserveOnlyPipeline(
 
       // Parse and upsert based on report type
       if (reportType === 'enterprise-1-day') {
-        const userRows = parseEnterpriseReportToUsers(gh.enterprise, gh.org, rawPayload);
+        const userRows = parseEnterpriseReportToUsers(gh.enterprise, gh.org, reportPayload);
         if (userRows.length > 0) {
           await (db as any).insert(T.users)
             .values(userRows)
@@ -139,7 +139,7 @@ export async function runObserveOnlyPipeline(
             });
         }
       } else if (reportType === 'users-1-day') {
-        const usageRows = parseDailyUsage(rawPayload);
+        const usageRows = parseDailyUsage(reportPayload);
         if (usageRows.length > 0) {
           await (db as any).insert(T.dailyUsage)
             .values(usageRows)
@@ -163,7 +163,7 @@ export async function runObserveOnlyPipeline(
           result.usageUpserted += usageRows.length;
         }
       } else if (reportType === 'enterprise-user-teams-1-day') {
-        const teamRows = parseTeamUsage(rawPayload);
+        const teamRows = parseTeamUsage(reportPayload);
         if (teamRows.length > 0) {
           await (db as any).insert(T.teamUsage)
             .values(teamRows)
@@ -177,7 +177,7 @@ export async function runObserveOnlyPipeline(
             });
         }
 
-        const teamMemberRows = parseTeamMembers(rawPayload);
+        const teamMemberRows = parseTeamMembers(reportPayload);
         if (teamMemberRows.length > 0) {
           await (db as any).insert(T.users)
             .values(teamMemberRows.map((row) => ({

@@ -12,6 +12,12 @@ export type BudgetReport = {
   alertLevel?: 'info' | 'warning' | 'critical';
 };
 
+/**
+ * Fetch Copilot AI credit billing data from the GitHub API.
+ */
+/**
+ * Fetch Copilot AI credit billing data from the GitHub API.
+ */
 export async function fetchBilling(
   client: GitHubClient,
   options?: { maxAttempts?: number; delays?: number[]; delayFn?: (ms: number) => Promise<void> },
@@ -38,7 +44,7 @@ export async function fetchBilling(
       },
     );
 
-    const data = response.data as {
+    const parsedBody = response.data as {
       timePeriod?: { year: number; month?: number };
       usageItems?: Array<{
         product: string;
@@ -50,8 +56,8 @@ export async function fetchBilling(
     };
 
     let budgetUsed = 0;
-    if (data.usageItems && Array.isArray(data.usageItems)) {
-      for (const item of data.usageItems) {
+    if (parsedBody.usageItems && Array.isArray(parsedBody.usageItems)) {
+      for (const item of parsedBody.usageItems) {
         if (item.sku === 'Copilot AI Credits' || item.product === 'Copilot') {
           budgetUsed += Number(item.netAmount ?? item.grossAmount ?? 0);
         }

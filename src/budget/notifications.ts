@@ -42,6 +42,9 @@ export type GitHubIssueConfig = {
   token: string;
 };
 
+/**
+ * Send a budget alert to a Slack webhook.
+ */
 export async function sendSlackNotification(
   db: any,
   config: SlackConfig,
@@ -115,6 +118,9 @@ export async function sendSlackNotification(
   }
 }
 
+/**
+ * Create or update a GitHub Issue with the current budget alert.
+ */
 export async function sendGitHubIssue(
   db: any,
   config: GitHubIssueConfig,
@@ -203,7 +209,7 @@ export async function sendGitHubIssue(
 
 async function logNotification(
   db: any,
-  data: {
+  logEntry: {
     snapshotDate: string;
     channel: NotificationChannel;
     notificationType: string;
@@ -217,23 +223,23 @@ async function logNotification(
 
   if (isPg) {
     await db.insert(notificationLogPg).values({
-      snapshotDate: data.snapshotDate,
-      channel: data.channel,
-      notificationType: data.notificationType,
-      externalId: data.externalId || null,
-      payload: data.payload as any,
-      success: data.success,
-      errorMessage: data.errorMessage || null,
+      snapshotDate: logEntry.snapshotDate,
+      channel: logEntry.channel,
+      notificationType: logEntry.notificationType,
+      externalId: logEntry.externalId || null,
+      payload: logEntry.payload as any,
+      success: logEntry.success,
+      errorMessage: logEntry.errorMessage || null,
     }).onConflictDoNothing();
   } else {
     await db.insert(notificationLogSq).values({
-      snapshotDate: data.snapshotDate,
-      channel: data.channel,
-      notificationType: data.notificationType,
-      externalId: data.externalId || null,
-      payload: data.payload as any,
-      success: data.success ? 1 : 0,
-      errorMessage: data.errorMessage || null,
+      snapshotDate: logEntry.snapshotDate,
+      channel: logEntry.channel,
+      notificationType: logEntry.notificationType,
+      externalId: logEntry.externalId || null,
+      payload: logEntry.payload as any,
+      success: logEntry.success ? 1 : 0,
+      errorMessage: logEntry.errorMessage || null,
     }).onConflictDoNothing();
   }
 }

@@ -144,7 +144,7 @@ async function getYesterdaySnapshot(db: DbClient, date: string): Promise<BudgetS
 
 async function upsertBudgetSnapshot(
   db: DbClient,
-  data: {
+  snapshot: {
     snapshotDate: string;
     totalBudget: number;
     budgetUsed: number;
@@ -167,35 +167,35 @@ async function upsertBudgetSnapshot(
     await pgDb
       .insert(budgetSnapshotsPg)
       .values({
-        snapshotDate: data.snapshotDate,
-        totalBudget: data.totalBudget.toString(),
-        budgetUsed: data.budgetUsed.toString(),
-        budgetRemaining: data.budgetRemaining.toString(),
-        pctUsed: data.pctUsed.toString(),
-        pctElapsed: data.pctElapsed.toString(),
-        forecast7d: data.forecast7d?.toString() ?? null,
-        forecast30d: data.forecast30d?.toString() ?? null,
-        pctOfBudget7d: data.pctOfBudget7d?.toString() ?? null,
-        pctOfBudget30d: data.pctOfBudget30d?.toString() ?? null,
-        alertLevel: data.alertLevel,
-        source: data.source,
-        note: data.note,
+        snapshotDate: snapshot.snapshotDate,
+        totalBudget: snapshot.totalBudget.toString(),
+        budgetUsed: snapshot.budgetUsed.toString(),
+        budgetRemaining: snapshot.budgetRemaining.toString(),
+        pctUsed: snapshot.pctUsed.toString(),
+        pctElapsed: snapshot.pctElapsed.toString(),
+        forecast7d: snapshot.forecast7d?.toString() ?? null,
+        forecast30d: snapshot.forecast30d?.toString() ?? null,
+        pctOfBudget7d: snapshot.pctOfBudget7d?.toString() ?? null,
+        pctOfBudget30d: snapshot.pctOfBudget30d?.toString() ?? null,
+        alertLevel: snapshot.alertLevel,
+        source: snapshot.source,
+        note: snapshot.note,
       })
       .onConflictDoUpdate({
         target: budgetSnapshotsPg.snapshotDate,
         set: {
-          totalBudget: data.totalBudget.toString(),
-          budgetUsed: data.budgetUsed.toString(),
-          budgetRemaining: data.budgetRemaining.toString(),
-          pctUsed: data.pctUsed.toString(),
-          pctElapsed: data.pctElapsed.toString(),
-          forecast7d: data.forecast7d?.toString() ?? null,
-          forecast30d: data.forecast30d?.toString() ?? null,
-          pctOfBudget7d: data.pctOfBudget7d?.toString() ?? null,
-          pctOfBudget30d: data.pctOfBudget30d?.toString() ?? null,
-          alertLevel: data.alertLevel,
-          source: data.source,
-          note: data.note,
+          totalBudget: snapshot.totalBudget.toString(),
+          budgetUsed: snapshot.budgetUsed.toString(),
+          budgetRemaining: snapshot.budgetRemaining.toString(),
+          pctUsed: snapshot.pctUsed.toString(),
+          pctElapsed: snapshot.pctElapsed.toString(),
+          forecast7d: snapshot.forecast7d?.toString() ?? null,
+          forecast30d: snapshot.forecast30d?.toString() ?? null,
+          pctOfBudget7d: snapshot.pctOfBudget7d?.toString() ?? null,
+          pctOfBudget30d: snapshot.pctOfBudget30d?.toString() ?? null,
+          alertLevel: snapshot.alertLevel,
+          source: snapshot.source,
+          note: snapshot.note,
           updatedAt: new Date(),
         },
       });
@@ -204,41 +204,46 @@ async function upsertBudgetSnapshot(
     await sqDb
       .insert(budgetSnapshotsSq)
       .values({
-        snapshotDate: data.snapshotDate,
-        totalBudget: data.totalBudget.toString(),
-        budgetUsed: data.budgetUsed.toString(),
-        budgetRemaining: data.budgetRemaining.toString(),
-        pctUsed: data.pctUsed.toString(),
-        pctElapsed: data.pctElapsed.toString(),
-        forecast7d: data.forecast7d?.toString() ?? null,
-        forecast30d: data.forecast30d?.toString() ?? null,
-        pctOfBudget7d: data.pctOfBudget7d?.toString() ?? null,
-        pctOfBudget30d: data.pctOfBudget30d?.toString() ?? null,
-        alertLevel: data.alertLevel,
-        source: data.source,
-        note: data.note,
+        snapshotDate: snapshot.snapshotDate,
+        totalBudget: snapshot.totalBudget.toString(),
+        budgetUsed: snapshot.budgetUsed.toString(),
+        budgetRemaining: snapshot.budgetRemaining.toString(),
+        pctUsed: snapshot.pctUsed.toString(),
+        pctElapsed: snapshot.pctElapsed.toString(),
+        forecast7d: snapshot.forecast7d?.toString() ?? null,
+        forecast30d: snapshot.forecast30d?.toString() ?? null,
+        pctOfBudget7d: snapshot.pctOfBudget7d?.toString() ?? null,
+        pctOfBudget30d: snapshot.pctOfBudget30d?.toString() ?? null,
+        alertLevel: snapshot.alertLevel,
+        source: snapshot.source,
+        note: snapshot.note,
       })
       .onConflictDoUpdate({
         target: budgetSnapshotsSq.snapshotDate,
         set: {
-          totalBudget: data.totalBudget.toString(),
-          budgetUsed: data.budgetUsed.toString(),
-          budgetRemaining: data.budgetRemaining.toString(),
-          pctUsed: data.pctUsed.toString(),
-          pctElapsed: data.pctElapsed.toString(),
-          forecast7d: data.forecast7d?.toString() ?? null,
-          forecast30d: data.forecast30d?.toString() ?? null,
-          pctOfBudget7d: data.pctOfBudget7d?.toString() ?? null,
-          pctOfBudget30d: data.pctOfBudget30d?.toString() ?? null,
-          alertLevel: data.alertLevel,
-          source: data.source,
-          note: data.note,
+          totalBudget: snapshot.totalBudget.toString(),
+          budgetUsed: snapshot.budgetUsed.toString(),
+          budgetRemaining: snapshot.budgetRemaining.toString(),
+          pctUsed: snapshot.pctUsed.toString(),
+          pctElapsed: snapshot.pctElapsed.toString(),
+          forecast7d: snapshot.forecast7d?.toString() ?? null,
+          forecast30d: snapshot.forecast30d?.toString() ?? null,
+          pctOfBudget7d: snapshot.pctOfBudget7d?.toString() ?? null,
+          pctOfBudget30d: snapshot.pctOfBudget30d?.toString() ?? null,
+          alertLevel: snapshot.alertLevel,
+          source: snapshot.source,
+          note: snapshot.note,
           updatedAt: new Date().toISOString(),
         },
       });
   }
 }
 
+/**
+ * Run the budget sync pipeline: fetch billing data from GitHub API, load
+ * the latest pool snapshot, compute alert level, store the snapshot, and
+ * dispatch Slack/GitHub Issue notifications when the level changes.
+ */
 export async function runBudgetSync(config: BudgetSyncConfig): Promise<BudgetSyncResult> {
   const { db, github, slackWebhookUrl, issueRepoOwner, issueRepoName, issueRepoToken, dryRun = false } = config;
   

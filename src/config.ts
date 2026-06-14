@@ -30,12 +30,15 @@ function expandEnvObj(obj: any): any {
   return obj;
 }
 
+/**
+ * Load and validate the BurnRate YAML config file.
+ */
 export function loadConfig(filePath: string): BurnrateConfig {
   let fileConfig: Partial<BurnrateConfig> = {};
 
   try {
-    const raw = readFileSync(filePath, 'utf8');
-    fileConfig = expandEnvObj(parse(raw)) as Partial<BurnrateConfig>;
+    const yamlContent = readFileSync(filePath, 'utf8');
+    fileConfig = expandEnvObj(parse(yamlContent)) as Partial<BurnrateConfig>;
   } catch (err: any) {
     if (err.code !== 'ENOENT') {
       throw err;

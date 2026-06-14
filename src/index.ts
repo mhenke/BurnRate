@@ -85,6 +85,9 @@ function parseClassifyArgs(argv: string[]): { valueConfigPath: string; report: b
 }
 
 
+/**
+ * CLI entrypoint. Dispatches to etl, forecast, classify, budget-sync, or check.
+ */
 export async function main(argv: string[]): Promise<void> {
   const command = argv[2] ?? 'check';
 
@@ -135,7 +138,7 @@ export async function main(argv: string[]): Promise<void> {
 
     if (isSqlite) {
       const sqliteDb = db as BetterSQLite3Database<any>;
-      const rawRows = await sqliteDb
+      const usageRows = await sqliteDb
         .select({
           usage_date: dailyUsageSq.usageDate,
           credits: sql<number>`SUM(${dailyUsageSq.credits})`.mapWith(Number),
@@ -144,7 +147,7 @@ export async function main(argv: string[]): Promise<void> {
         .where(gte(dailyUsageSq.usageDate, dateString))
         .groupBy(dailyUsageSq.usageDate)
         .orderBy(dailyUsageSq.usageDate);
-      rows = rawRows;
+      rows = usageRows;
 
       const poolRows = await sqliteDb
         .select({
@@ -156,7 +159,7 @@ export async function main(argv: string[]): Promise<void> {
       poolTotal = poolRows.length > 0 ? Number(poolRows[0].total_credits) : 0;
     } else {
       const pgDb = db as NodePgDatabase<any>;
-      const rawRows = await pgDb
+      const usageRows = await pgDb
         .select({
           usage_date: dailyUsagePg.usageDate,
           credits: sql<number>`SUM(${dailyUsagePg.credits})`.mapWith(Number),
@@ -165,7 +168,7 @@ export async function main(argv: string[]): Promise<void> {
         .where(gte(dailyUsagePg.usageDate, dateString))
         .groupBy(dailyUsagePg.usageDate)
         .orderBy(dailyUsagePg.usageDate);
-      rows = rawRows as any;
+      rows = usageRows as any;
 
       const poolRows = await pgDb
         .select({

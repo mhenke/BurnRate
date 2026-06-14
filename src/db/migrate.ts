@@ -211,6 +211,10 @@ export const sqliteSchemaStatements = [
   `CREATE INDEX IF NOT EXISTS idx_classification_history_github_login ON classification_history(github_login)`,
 ];
 
+/**
+ * Run all database migrations: create tables and indexes if they do not exist.
+ * Automatically selects PostgreSQL or SQLite statements based on the client.
+ */
 export async function runMigrations(db: any): Promise<void> {
   const isSqlite = typeof db.run === 'function';
   const statements = isSqlite ? sqliteSchemaStatements : pgSchemaStatements;

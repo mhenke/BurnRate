@@ -13,9 +13,12 @@ function expandEnv(value: string): string {
   return value.replace(/\$\{([A-Z0-9_]+)\}/g, (_, name: string) => process.env[name] ?? '');
 }
 
+/**
+ * Load and parse the value tier YAML config file.
+ */
 export function loadValueConfig(filePath: string): ValueConfig {
-  const raw = readFileSync(filePath, 'utf8');
-  const parsed = parse(expandEnv(raw)) as Partial<ValueConfig>;
+  const yamlContent = readFileSync(filePath, 'utf8');
+  const parsed = parse(expandEnv(yamlContent)) as Partial<ValueConfig>;
 
   // Validate required keys
   const required = ['critical', 'normal', 'low_priority'] as const;
@@ -31,6 +34,9 @@ export function loadValueConfig(filePath: string): ValueConfig {
   return parsed as ValueConfig;
 }
 
+/**
+ * Resolve a team name to its configured value tier.
+ */
 export function resolveValueTier(team: string | null, config: ValueConfig): ValueTier {
   if (!team) return 'normal';
 

@@ -11,12 +11,12 @@ export type TeamMemberRow = {
   team: string;
 };
 
-function hasAggregateMetrics(entry: Record<string, unknown>): boolean {
-  return entry.credits_used !== undefined || entry.active_users !== undefined || entry.avg_acceptance_rate !== undefined;
+function hasAggregateMetrics(teamRow: Record<string, unknown>): boolean {
+  return teamRow.credits_used !== undefined || teamRow.active_users !== undefined || teamRow.avg_acceptance_rate !== undefined;
 }
 
-function getLogin(entry: Record<string, unknown>): string | null {
-  const login = entry.github_login ?? entry.login;
+function getLogin(userRow: Record<string, unknown>): string | null {
+  const login = userRow.github_login ?? userRow.login;
   return typeof login === 'string' && login.trim().length > 0 ? login : null;
 }
 
@@ -26,17 +26,17 @@ export function parseTeamUsage(
 ): TeamUsageRow[] {
   if (!report || !Array.isArray(report.data)) return [];
   return report.data
-    .filter((entry) => hasAggregateMetrics(entry))
-    .map((entry: Record<string, unknown>) => {
-    const team = typeof entry.team === 'string' && entry.team.trim().length > 0 ? entry.team : 'unknown';
-    const credits = entry.credits_used !== undefined ? Number(entry.credits_used) : 0;
-    const avgAcceptanceRate = entry.avg_acceptance_rate !== undefined ? Number(entry.avg_acceptance_rate) : 0;
+    .filter((teamRow) => hasAggregateMetrics(teamRow))
+    .map((teamRow: Record<string, unknown>) => {
+    const team = typeof teamRow.team === 'string' && teamRow.team.trim().length > 0 ? teamRow.team : 'unknown';
+    const credits = teamRow.credits_used !== undefined ? Number(teamRow.credits_used) : 0;
+    const avgAcceptanceRate = teamRow.avg_acceptance_rate !== undefined ? Number(teamRow.avg_acceptance_rate) : 0;
 
     return {
       usageDate: report.report_day,
       team,
       credits: credits.toString(),
-      activeUsers: Number(entry.active_users ?? 0),
+      activeUsers: Number(teamRow.active_users ?? 0),
       avgAcceptanceRate: avgAcceptanceRate.toFixed(4),
     };
   });
@@ -49,9 +49,9 @@ export function parseTeamMembers(
   if (!report || !Array.isArray(report.data)) return [];
 
   return report.data
-    .map((entry: Record<string, unknown>) => {
-      const githubLogin = getLogin(entry);
-      const team = entry.team;
+    .map((memberRow: Record<string, unknown>) => {
+      const githubLogin = getLogin(memberRow);
+      const team = memberRow.team;
 
       if (!githubLogin || typeof team !== 'string' || team.trim().length === 0) {
         return null;
