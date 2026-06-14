@@ -136,10 +136,10 @@ BurnRate packages Copilot Agent Skills for chat interfaces (like Copilot Chat or
 
 | Phase | Status | Description |
 |-------|--------|-------------|
-| **Phase 1** | Complete | Observe-only ETL pipeline with raw storage |
-| **Phase 2** | In progress | User classification by consumption/value tiers (weekly recalc + value tiers) |
-| **Phase 3** | In progress | Budget sync + notification hub (Slack, GitHub Issues) — automation being validated |
-| **Phase 4** | Planned | ULB enforcement with GitHub Budgets API writes |
+| **Phase 1** | ✅ Complete | Observe-only ETL pipeline with raw storage |
+| **Phase 2** | ✅ Complete | User classification by consumption/value tiers (weekly recalc + value tiers) |
+| **Phase 3** | ✅ Complete | Budget sync + notification hub (Slack, GitHub Issues) |
+| **Phase 4** | 📋 Planned | ULB enforcement with GitHub Budgets API writes |
 
 ## Configuration
 
@@ -196,12 +196,14 @@ Test coverage target: **80%** for parsers and forecasting calculations.
 
 ## GitHub Actions
 
-BurnRate includes two automated workflows:
+BurnRate includes automated workflows:
 
-- **`weekly-classify.yml`**: Runs every Monday at 6 AM UTC to classify users
-- **`daily-budget-check.yml`**: Runs Monday-Friday at 9 AM UTC for budget alerts
+- **`nightly-etl.yml`**: Runs daily at 1 AM UTC — fetches and stores usage reports
+- **`daily-forecast.yml`**: Runs daily at 8 AM UTC — computes burn forecasts
+- **`weekly-classify.yml`**: Runs Monday at 6 AM UTC — classifies users by consumption/value tiers
+- **`daily-budget-check.yml`**: Runs Monday-Friday at 9 AM UTC — syncs budgets and sends alerts
 
-Both workflows can be triggered manually via `workflow_dispatch`.
+All workflows can be triggered manually via `workflow_dispatch`.
 
 ## Database Schema
 
