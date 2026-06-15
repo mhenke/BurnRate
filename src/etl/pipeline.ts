@@ -56,7 +56,7 @@ async function upsertUsers(ctx: PipelineCtx, userRows: Array<{
   githubLogin: string; enterprise: string; org: string;
   displayName?: string | null; email?: string | null; team?: string | null;
   seatCreatedAt?: string | null; lastActivityAt?: string | null;
-  consumptionTier?: string | null; valueTier?: string | null;
+  consumptionTier?: string | null;
 }>) {
   if (userRows.length === 0) return;
   const t = dialectTable(ctx.db, usersPg, usersSq);
@@ -72,7 +72,6 @@ async function upsertUsers(ctx: PipelineCtx, userRows: Array<{
         seatCreatedAt: sql`excluded.seat_created_at`,
         lastActivityAt: sql`excluded.last_activity_at`,
         consumptionTier: sql`excluded.consumption_tier`,
-        valueTier: sql`excluded.value_tier`,
         updatedAt: ctx.now,
       }
     });

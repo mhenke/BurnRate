@@ -1,5 +1,4 @@
 import { daysAgo, today } from '../constants.js';
-import { loadValueConfig } from './value_config.js';
 import { classifyUsers } from './engine.js';
 import type { DbClient } from '../db/client.js';
 import { sql } from 'drizzle-orm';
@@ -8,10 +7,8 @@ import { dialectDb, dialectTable, dialectNow } from '../db/adapter.js';
 import * as queries from '../db/queries.js';
 
 export type ClassifyOptions = {
-  valueConfigPath: string;
   reason: 'weekly_recalc' | 'manual';
   showReport: boolean;
-  /** Optional threshold overrides for consumption-tier classification. */
   classifyThresholds?: { extremePct: number; highPct: number; mediumPct: number };
 };
 
@@ -25,17 +22,10 @@ export type ClassifyRunnerResult = {
 type TierChangeRow = {
   githubLogin: string;
   consumptionTierNew: string;
-  valueTierNew: string;
   consumptionTierOld: string | null;
-  valueTierOld: string | null;
   reason: string;
 };
 
-/**
- * Build the ORM update and insert builders for a single tier-change row.
- * Returns the two builders without executing them, so the caller can run them
- * inside either a sync (SQLite) or async (PG) transaction wrapper.
- */
 function buildWriteOps(
   tx: any,
   change: TierChangeRow,
@@ -48,7 +38,6 @@ function buildWriteOps(
   const usersUpdate = tx.update(usersTable)
     .set({
       consumptionTier: change.consumptionTierNew,
-      valueTier: change.valueTierNew,
       bucketUpdatedAt: now,
       updatedAt: nowExpr,
     })
@@ -60,7 +49,6 @@ function buildWriteOps(
       githubLogin: change.githubLogin,
       consumptionTierOld: change.consumptionTierOld,
       consumptionTierNew: change.consumptionTierNew,
-      valueTier: change.valueTierNew,
       reason: change.reason,
     })
     .onConflictDoNothing();
@@ -102,15 +90,10 @@ async function writeChanges(
   }
 }
 
-/**
- * Run the classification pipeline: load usage data, classify users by
- * consumption and value tiers, write changes to the database.
- */
 export async function runClassify(
   db: DbClient,
   options: ClassifyOptions,
 ): Promise<ClassifyRunnerResult> {
-  const valueConfig = loadValueConfig(options.valueConfigPath);
   const dateString = daysAgo(30);
 
   const usageRows = await queries.getUsageByUser(db, dateString);
@@ -134,14 +117,11 @@ export async function runClassify(
     githubLogin: r.github_login,
     team: r.team,
     consumptionTier: r.consumption_tier,
-    valueTier: r.value_tier,
     bucketUpdatedAt: r.bucket_updated_at instanceof Date ? r.bucket_updated_at.toISOString() : r.bucket_updated_at,
   }));
 
   const effectiveDate = today();
-  const result = classifyUsers(
-    userCredits, currentUsers, valueConfig, options.reason, options.classifyThresholds,
-  );
+  const result = classifyUsers(userCredits, currentUsers, options.reason, options.classifyThresholds);
 
   if (result.changes.length > 0) {
     await writeChanges(db, result.changes, effectiveDate,

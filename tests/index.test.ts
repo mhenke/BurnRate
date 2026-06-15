@@ -138,9 +138,8 @@ describe('CLI entrypoint', () => {
       tierCounts: { low: 0, medium: 1, high: 0, extreme: 0 },
     });
 
-    await main(['node', 'src/index.ts', 'classify', '--value-config', 'config/value_config.sample.yml', '--report']);
+    await main(['node', 'src/index.ts', 'classify', '--report']);
 
-    assert.equal(classifySpy.mock.calls[0]?.[1].valueConfigPath, 'config/value_config.sample.yml');
     assert.equal(classifySpy.mock.calls[0]?.[1].showReport, true);
     classifySpy.mockRestore();
     loadConfigSpy.mockRestore();

@@ -8,7 +8,6 @@ export type UserRow = {
   seatCreatedAt?: string | null;
   lastActivityAt?: string | null;
   consumptionTier?: string | null;
-  valueTier?: string | null;
 };
 
 /** Parse enterprise-1-day report into user rows (status/activity snapshot). */
@@ -28,6 +27,5 @@ export function parseEnterpriseReportToUsers(
     seatCreatedAt: userRow.seat_created_at ?? null,
     lastActivityAt: userRow.last_activity_at ?? null,
     consumptionTier: userRow.consumption_tier ?? null,
-    valueTier: userRow.value_tier ?? null,
   }));
 }

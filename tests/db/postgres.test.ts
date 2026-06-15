@@ -147,7 +147,6 @@ describe('PostgreSQL Integration Test', () => {
 
     // Run classification command
     const classifyResult = await runClassify(db, {
-      valueConfigPath: 'config/value_config.sample.yml',
       reason: 'manual',
       showReport: false
     });
@@ -222,17 +221,15 @@ describe('PostgreSQL Integration Test', () => {
     const syncResult = await runBudgetSync({
       db,
       github: ghClientMock,
-      slackWebhookUrl: 'https://hooks.slack.com/services/test',
-      issueRepoOwner: 'acme',
-      issueRepoName: 'burnrate',
-      issueRepoToken: 'ghp_test',
+      notificationProviders: [
+        { type: 'slack', webhookUrl: 'https://hooks.slack.com/services/test' },
+        { type: 'github_issues', owner: 'acme', repo: 'burnrate', token: 'ghp_test' },
+      ],
       fetchOptions: { delayFn: () => Promise.resolve() },
     });
 
-    // 4. Verify it inserts budget_snapshots and logs notifications in postgres
-    assert.equal(syncResult.alertLevel, 'warning'); // 95% forecast7d >= 90% is warning
-    assert.equal(syncResult.slackNotified, true);
-    assert.equal(syncResult.issueNotified, true);
+    assert.equal(syncResult.alertLevel, 'warning');
+    assert.equal(syncResult.notificationsDispatched, 2);
 
     const snapshots = await db.select().from(budgetSnapshotsPg).where(eq(budgetSnapshotsPg.snapshotDate, todayStr));
     assert.equal(snapshots.length, 1);

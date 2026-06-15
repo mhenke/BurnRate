@@ -30,7 +30,6 @@ export const usersPg = pgTable('users', {
   seatCreatedAt: pgTimestamp('seat_created_at', { withTimezone: true }),
   lastActivityAt: pgTimestamp('last_activity_at', { withTimezone: true }),
   consumptionTier: pgText('consumption_tier'),
-  valueTier: pgText('value_tier'),
   bucketUpdatedAt: pgTimestamp('bucket_updated_at', { withTimezone: true }),
   updatedAt: pgTimestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
@@ -73,7 +72,6 @@ export const classificationHistoryPg = pgTable('classification_history', {
   githubLogin: pgText('github_login').notNull(),
   consumptionTierOld: pgText('consumption_tier_old'),
   consumptionTierNew: pgText('consumption_tier_new'),
-  valueTier: pgText('value_tier'),
   reason: pgText('reason'),
 }, (t) => [
   pgUnique('classification_history_date_login_pk').on(t.effectiveDate, t.githubLogin),
@@ -148,7 +146,6 @@ export const usersSq = sqliteTable('users', {
   seatCreatedAt: sqText('seat_created_at'),
   lastActivityAt: sqText('last_activity_at'),
   consumptionTier: sqText('consumption_tier'),
-  valueTier: sqText('value_tier'),
   bucketUpdatedAt: sqText('bucket_updated_at'),
   updatedAt: sqText('updated_at').notNull().default('CURRENT_TIMESTAMP'),
 }, (t) => [
@@ -191,7 +188,6 @@ export const classificationHistorySq = sqliteTable('classification_history', {
   githubLogin: sqText('github_login').notNull(),
   consumptionTierOld: sqText('consumption_tier_old'),
   consumptionTierNew: sqText('consumption_tier_new'),
-  valueTier: sqText('value_tier'),
   reason: sqText('reason'),
 }, (t) => [
   sqUnique('classification_history_date_login_pk').on(t.effectiveDate, t.githubLogin),

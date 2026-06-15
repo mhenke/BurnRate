@@ -65,13 +65,14 @@ describe('runBudgetSync', () => {
   });
 
   it('fetches budget data and computes metrics', async () => {
+    const expectedDate = new Date().toISOString().split('T')[0];
     const config: BudgetSyncConfig = {
       db, github,
       notificationProviders: defaultProviders(),
       fetchOptions: { delayFn: () => Promise.resolve() },
     };
     const result = await runBudgetSync(config);
-    assert.equal(result.snapshotDate, new Date().toISOString().split('T')[0]);
+    assert.equal(result.snapshotDate, expectedDate);
     assert.equal(result.totalBudget, 10000);
     assert.equal(result.budgetUsed, 7500);
     assert.ok(result.pctUsed >= 0);

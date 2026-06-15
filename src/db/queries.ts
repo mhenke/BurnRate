@@ -95,7 +95,6 @@ export type UserSummaryRow = {
   github_login: string;
   team: string | null;
   consumption_tier: string | null;
-  value_tier: string | null;
   bucket_updated_at: string | Date | null;
 };
 
@@ -114,7 +113,6 @@ export async function getAllUsers(db: DbClient): Promise<UserSummaryRow[]> {
       github_login: t.githubLogin,
       team: t.team,
       consumption_tier: t.consumptionTier,
-      value_tier: t.valueTier,
       bucket_updated_at: t.bucketUpdatedAt,
     })
     .from(t) as UserSummaryRow[];

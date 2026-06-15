@@ -22,14 +22,13 @@ function getConfig(): BurnrateConfig {
   return loadConfig(cfgPath);
 }
 
-async function runClassificationCommand(opts: { configPath: string; valueConfigPath: string; report: boolean }) {
+async function runClassificationCommand(opts: { configPath: string; report: boolean }) {
   const cfg = getConfig();
   const resolvedThresholds = resolveThresholds(cfg.thresholds);
   const db = initDb(cfg.postgres.url);
 
   try {
     const result = await runClassify(db, {
-      valueConfigPath: opts.valueConfigPath,
       reason: 'manual',
       showReport: opts.report,
       classifyThresholds: resolvedThresholds.classify,
@@ -109,7 +108,6 @@ export async function main(argv: string[]): Promise<void> {
     const configPath = process.env.BURNRATE_CONFIG ?? DEFAULT_CONFIG_PATH;
     await runClassificationCommand({
       configPath,
-      valueConfigPath: parsed.valueConfigPath,
       report: parsed.report,
     });
     return;

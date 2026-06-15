@@ -8,6 +8,13 @@
       "when": 1781399156550,
       "tag": "0000_friendly_sebastian_shaw",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1782000000000,
+      "tag": "0001_drop_value_tier",
+      "breakpoints": true
     }
   ]
 }

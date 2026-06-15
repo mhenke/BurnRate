@@ -21,4 +21,3 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           GITHUB_ENTERPRISE: ${{ secrets.GITHUB_ENTERPRISE }}
           GITHUB_ORG: ${{ secrets.GITHUB_ORG }}
-          VALUE_CONFIG_PATH: config/value_config.sample.yml
