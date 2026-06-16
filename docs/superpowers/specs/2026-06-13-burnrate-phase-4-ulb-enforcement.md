@@ -2,11 +2,11 @@
 
 > **For agentic workers:** This spec is the source of truth for Phase 4. Implement with a `burnrate enforce` CLI command and a daily GitHub Actions cron that runs the same command.
 
-**Goal:** Prevent end-of-month credit exhaustion by dynamically adjusting user-level budgets (ULBs) based on burn-chart projection and tier-weighted allocation, with configurable hard/soft enforcement modes.
+**Goal:** Prevent end-of-month credit exhaustion by dynamically calculating user-level budgets (ULBs) based on burn-chart projection and tier-weighted allocation, with configurable hard/soft enforcement modes. v1 calculates and audits ULBs; GitHub Budgets API writes are deferred to a future phase.
 
-**Architecture:** A daily job reads pool usage and per-user 30-day averages, projects end-of-month burn, calculates tier-weighted allocations from historical baselines, and writes ULBs via GitHub Budgets API. Rebalancing runs daily independent of weekly classification; classification tiers only set the weighting direction.
+**Architecture:** A daily job reads pool usage and per-user 30-day averages, projects end-of-month burn, calculates tier-weighted allocations from historical baselines, and writes ULB audit records. Rebalancing runs daily independent of weekly classification; classification tiers only set the weighting direction.
 
-**Tech Stack:** TypeScript, Node.js, Drizzle ORM, Postgres + SQLite, `octokit`, `dotenv`, `vitest`, GitHub Actions, GitHub Budgets REST API.
+**Tech Stack:** TypeScript, Node.js, Drizzle ORM, Postgres + SQLite, `octokit`, `dotenv`, `vitest`, GitHub Actions. GitHub Budgets REST API client deferred to future phase.
 
 **Credits-to-Dollars:** Fixed conversion `1 credit = $0.01 USD`. All internal calculations use credits; GitHub API calls use USD.
 
@@ -23,11 +23,9 @@ The original spec throttled heavy users (extreme=0.5x) to preserve the pool. Thi
 | `medium` | baseline | Standard allocation |
 | `low` | lowest | Barely uses Copilot — won't notice tighter limits |
 
-When the pool is at risk, cuts flow **top-down**:
-1. Trim Tier 1 (extreme) first — they have the most headroom
-2. If gap still open, trim Tier 2 (high)
-3. Tier 3 (medium) only if necessary
-4. Tier 4 (low) **never gets cut** — minimal usage, minimal savings, maximum annoyance
+When the pool is at risk, cuts flow in two phases:
+1. **Phase 1 — headroom cuts** (bottom-up): Trim Tier 4 (low) first — they won't notice and have minimal headroom anyway. Then Tier 3 (medium), Tier 2 (high), Tier 1 (extreme). Protects power users by exhausting lower tiers first.
+2. **Phase 2 — below-floor reclamation** (hard mode only): All users proportionally, largest idle pools first. A user's allocation can reach zero.
 
 Users within a tier are cut proportionally to their headroom (current ULB − 30d average). Users far above their average take bigger cuts than users already near it.
 
@@ -51,7 +49,7 @@ Tier weights apply as a multiplier on the baseline. These are configurable:
 
 ```yaml
 budget:
-  tier_weights:
+  tierWeights:
     extreme: 1.5
     high: 1.15
     medium: 1.0
@@ -86,7 +84,7 @@ The buffer is a **month-end target**, not subtracted first. The projection says 
 
 ```typescript
 function computeCuts(users: UserState[], gap: number): CutResult {
-  const CUT_ORDER = ['extreme', 'high', 'medium']; // low never cut
+  const CUT_ORDER = ['low', 'medium', 'high', 'extreme']; // bottom-up, protects power users
 
   let remainingGap = gap;
   const cuts: UserCut[] = [];
@@ -123,15 +121,11 @@ function computeCuts(users: UserState[], gap: number): CutResult {
 }
 ```
 
-### 2.5 Floor — Never Cut Below 30-Day Average
+### 2.5 Floor — Baseline Only for Headroom Phase
 
-No user gets cut below their 30-day average. Cutting below average guarantees disruption — they'll hit the cap mid-session doing exactly what they normally do.
+In Phase 1 (headroom cuts), no user gets cut below their 30-day average. The floor represents their projected remaining need — cutting below it risks mid-session disruption.
 
-```typescript
-const floor = user.dailyAvg30d * daysRemaining;
-// ULB never goes below floor
-const newUlb = Math.max(proposedUlb, floor);
-```
+In Phase 2 (hard mode only), the floor is overridden: below-floor reclamation proceeds tier-by-tier from low → extreme, reducing idle allocations to close the gap. A user's allocation can reach zero if the pool requires it.
 
 ### 2.6 Gradual Restore
 
@@ -143,7 +137,7 @@ const restoreAmount = Math.round((targetUlb - currentUlb) * restoreRate);
 const newUlb = currentUlb + restoreAmount;
 ```
 
-`restore_rate` defaults to 0.5 (50% per day projection stays under target).
+`restoreRate` defaults to 0.5 (50% per day projection stays under target).
 
 ---
 
@@ -151,16 +145,17 @@ const newUlb = currentUlb + restoreAmount;
 
 ```yaml
 budget:
-  mode: hard    # never go over — pool is absolute ceiling
+  mode: hard    # guarantee pool containment — below-floor cuts if needed
   # OR
-  mode: soft    # minimize disruption — allow overage, alert loudly
+  mode: soft    # minimize disruption — tolerate overage, alert loudly
 
   # Shared parameters:
-  buffer_pct: 5
-  floor_basis: 30d_avg
-  restore_rate: 0.5
-  warning_hours: 72    # hard mode only: advance notice before cuts land (0 = immediate)
-  tier_weights:
+  bufferPct: 5
+  maxOveragePct: 0.10   # soft mode only: accept up to 10% over pool before cutting
+  floorBasis: 30d_avg
+  restoreRate: 0.5
+  warningHours: 72      # hard mode only: advance notice before cuts land (0 = immediate)
+  tierWeights:
     extreme: 1.5
     high: 1.15
     medium: 1.0
@@ -169,18 +164,21 @@ budget:
 
 ### hard mode
 
-Pool total is an absolute ceiling. The algorithm cuts top-down automatically. If headroom cuts can't close the gap, the highest-spend users above floor get blocked. `warning_hours` controls advance notice (0 = cut immediately, 72 = warn 72hrs before cutting).
+Pool total is an absolute ceiling. The algorithm cuts in two phases:
 
-If even cutting all tiers to floor can't close the gap, alert admin and hold — don't auto-cut below floor, surface for human decision.
+1. **Headroom cuts** (bottom-up by tier): low → medium → high → extreme, proportional to each user's headroom (current ULB − floor). Low users won't notice — they're already at 0.75x weight with near-zero headroom. Protects power users.
+2. **Below-floor reclamation**: All users sorted by **truly idle allocation** descending: `trulyIdle = max(0, currentUlb − projectedUsage)`, where `projectedUsage = dailyAvg30d × daysRemaining`. Users with the largest pools of allocation they won't use by end-of-month get cut first — regardless of tier. This closes the gap in the fewest users possible, critical when high-usage users are actively burning through their allotment. Proportional to each user's remaining ULB. A user's allocation can reach zero.
+
+`warningHours` controls advance notice (0 = cut immediately, 72 = warn 72hrs before cutting).
 
 ### soft mode
 
-Minimizes disruption. Algorithm cuts top-down and sends alerts, but never writes a ULB below 30d average floor. If gap can't be closed without going below floor, notify admins and report the projected overage. Designed for orgs where disruption cost exceeds occasional overage cost.
+Minimizes disruption. Algorithm cuts bottom-up from headroom only, never below floor. An additional `maxOveragePct` tolerance is applied: soft mode only starts cutting when the projected overage exceeds `poolTotal * maxOveragePct`. If gap can't be closed without going below floor, the unclosed gap is reported as `uncloseableGap`. Designed for orgs where disruption cost exceeds occasional overage cost.
 
-### What happens when gap can't be closed (both modes)
+### What happens when gap can't be closed
 
-- **hard**: Cut all tiers to floor, then alert admin about the remaining gap. Human decides.
-- **soft**: Don't cut below floor. Notify admin with projected overage amount, stop.
+- **hard**: Below-floor reclamation by truly-idle descending guarantees the gap closes by reclaiming idle allocation first. `uncloseableGap` is 0 by definition.
+- **soft**: Don't cut below floor. Report `uncloseableGap` in the result. Admin decides whether to switch to hard mode.
 
 ---
 
@@ -251,6 +249,7 @@ export type TierWeights = Record<ConsumptionTier, number>;
 export type BudgetPolicy = {
   mode: BudgetMode;
   bufferPct: number;
+  maxOveragePct: number;
   floorBasis: '30d_avg';
   restoreRate: number;
   warningHours: number;
@@ -297,17 +296,17 @@ burnrate enforce --dry-run
 ```json
 {
   "mode": "hard",
-  "poolTotal": 100000,
-  "creditsUsedMtd": 70000,
-  "daysRemaining": 10,
-  "projectedEom": 105000,
-  "bufferTarget": 5000,
-  "gap": 0,
+  "pool_total": 100000,
+  "credits_used_mtd": 70000,
+  "days_elapsed": 10,
+  "days_remaining": 20,
+  "projected_eom": 105000,
+  "buffer_target": 5000,
+  "gap": 5000,
   "action": "throttle",
-  "usersAdjusted": 12,
-  "usersBlocked": 0,
-  "uncloseableGap": 0,
-  "cutsByTier": {
+  "users_adjusted": 12,
+  "uncloseable_gap": 0,
+  "cuts_by_tier": {
     "extreme": 8,
     "high": 4,
     "medium": 0,
@@ -315,13 +314,12 @@ burnrate enforce --dry-run
   },
   "changes": [
     {
-      "login": "jdoe",
+      "githubLogin": "jdoe",
       "tier": "extreme",
-      "baseline": 8000,
-      "previousUlb": 12000,
-      "newUlb": 9500,
-      "cutAmount": 2500,
-      "reason": "daily_recalc"
+      "baseline": 2000,
+      "previousUlb": 4000,
+      "newUlb": 3000,
+      "cutAmount": 1000
     }
   ]
 }
@@ -333,11 +331,10 @@ burnrate enforce --dry-run
 
 | File | Purpose |
 |------|---------|
-| `src/budget/policy.ts` | BudgetPolicy type, defaults, config loading |
+| `src/enforce/types.ts` | BudgetPolicy type, defaults, shared types |
 | `src/enforce/engine.ts` | Core algorithm: projection, cut calculation, restore |
-| `src/enforce/runner.ts` | Orchestrator: read DB, run engine, write ULBs, audit log |
-| `src/enforce/types.ts` | Shared types for the enforcement module |
-| `src/github/budget.ts` | GitHub Budgets API client (create/update user-level budgets) |
+| `src/enforce/runner.ts` | Orchestrator: read DB, run engine, write audit log |
+| `src/github/budget.ts` | *(deferred)* GitHub Budgets API client |
 | `src/cli/args.ts` | Add `enforce` command parsing |
 | `src/index.ts` | Wire `enforce` command |
 | `src/db/schema.ts` | Add `ulbAuditPg` / `ulbAuditSq` tables |
@@ -349,7 +346,7 @@ burnrate enforce --dry-run
 | `tests/enforce/engine.test.ts` | Unit tests for projection, cuts, restore |
 | `tests/enforce/runner.test.ts` | Integration tests with DB |
 | `tests/enforce/policy.test.ts` | Config loading and defaults |
-| `tests/github/budget.test.ts` | GitHub Budgets API tests (mocked) |
+| `tests/github/budget.test.ts` | *(deferred)* GitHub Budgets API tests |
 
 ---
 
@@ -374,8 +371,10 @@ burnrate enforce --dry-run
 - Projection math (various burn rates, various days remaining)
 - Gap calculation with and without buffer
 - Top-down cut distribution (proportional to headroom)
-- Tier 4 (low) never cut assertion
-- Floor enforcement (never cut below 30d avg)
+- Tier 4 (low) cut first in Phase 1 (bottom-up order), reclaimed in Phase 2 (hard mode)
+- Floor enforcement in Phase 1, below-floor reclamation by truly-idle descending in Phase 2 (hard mode)
+- Below-floor proportional cut distribution (largest idle pools first)
+- Soft mode overage tolerance (maxOveragePct)
 - Gradual restore (50% rate)
 - Credits-to-USD conversion (rounding behavior)
 - Tier weight application
@@ -413,9 +412,9 @@ jobs:
         with:
           node-version: '22'
       - run: npm ci
-      - run: npm run enforce
+      - run: npx tsx src/index.ts enforce --report
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           BURNRATE_CONFIG: config/burnrate.yml
 ```
@@ -427,7 +426,7 @@ jobs:
 - **Last-day release**: Dropped. Daily projection with restore handles end-of-month naturally — allocations progressively expand as remaining days approach zero. An explicit last-day lump release is a patch for fixed-allocation systems.
 - **Equal fair-share baseline**: Replaced with 30-day rolling average. Equal split ignores that power users legitimately need 10x what light users need.
 - **Fixed tier multipliers**: Replaced with configurable tier weights + burn-chart projection. The original 0.5x/0.75x/1.0x/1.25x multipliers pointed in the wrong direction (tightened heavy users).
-- **Managed mode**: Collapsed into hard mode with `warning_hours` parameter. Same guarantee, configurable advance notice.
+- **Managed mode**: Collapsed into hard mode with `warningHours` parameter. Same guarantee, configurable advance notice.
 
 ## 12. Open Questions
 
@@ -435,4 +434,4 @@ jobs:
 
 2. **GitHub Budgets API endpoint shape** — The Budgets API is new. Exact request/response schema will need to be verified against actual API. Mock based on what we know from the existing GitHub API patterns.
 
-3. **Notification for managed warnings** — The `warning_hours: 72` parameter means we need a deferred notification system. For v1, use a `pending_actions` table or check on each enforce run whether the warning deadline has passed. Decisions pending implementation.
+3. **Notification for advance warnings** — The `warningHours: 72` parameter means we need a deferred notification system. For v1, use a `pending_actions` table or check on each enforce run whether the warning deadline has passed. Decisions pending implementation.

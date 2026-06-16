@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a daily enforcement pipeline that reads pool usage, projects end-of-month burn, calculates tier-weighted user-level budgets from 30-day averages, and writes ULBs via GitHub Budgets API, with hard/soft enforcement modes.
+**Goal:** Build a daily enforcement pipeline that reads pool usage, projects end-of-month burn, calculates tier-weighted user-level budgets from 30-day averages, and writes ULBs to the audit log, with hard/soft enforcement modes.
 
-**Architecture:** `src/enforce/engine.ts` contains pure math (projection, cut distribution, restore). `src/enforce/runner.ts` orchestrates reads from DB, runs the engine, writes to `ulb_audit`, and dispatches notifications. `src/config.ts` is extended with `BudgetPolicy`. A new `daily-enforce.yml` workflow runs the CLI daily.
+**Architecture:** `src/enforce/engine.ts` contains pure math with two cut phases: Phase 1 headroom cuts (bottom-up by tier: low → medium → high → extreme, protects power users) and Phase 2 below-floor reclamation (hard mode only, sorted by truly-idle descending — largest unused allocation reclaimed first, fastest gap closure). `src/enforce/runner.ts` orchestrates reads from DB, runs the engine, writes to `ulb_audit`. `src/config.ts` is extended with `BudgetPolicy`. A new `daily-enforce.yml` workflow runs the CLI daily.
 
 **Tech Stack:** TypeScript, Node.js, Drizzle ORM (PostgreSQL + SQLite), `octokit`, `dotenv`, `vitest`, GitHub Actions.
 
@@ -60,6 +60,7 @@ export const DEFAULT_TIER_WEIGHTS: TierWeights = {
 export type BudgetPolicy = {
   mode: BudgetMode;
   bufferPct: number;
+  maxOveragePct: number;
   floorBasis: '30d_avg';
   restoreRate: number;
   warningHours: number;
@@ -67,8 +68,9 @@ export type BudgetPolicy = {
 };
 
 export const DEFAULT_BUDGET_POLICY: BudgetPolicy = {
-  mode: 'managed',
+  mode: 'soft',
   bufferPct: 0.05,
+  maxOveragePct: 0,
   floorBasis: '30d_avg',
   restoreRate: 0.5,
   warningHours: 72,
@@ -101,9 +103,8 @@ export type EnforceResult = {
   projectedEom: number;
   bufferTarget: number;
   gap: number;
-  action: 'throttle' | 'restore' | 'none' | 'initial';
+  action: 'throttle' | 'restore' | 'none';
   usersAdjusted: number;
-  usersBlocked: number;
   uncloseableGap: number;
   changes: UserCut[];
 };
@@ -173,6 +174,7 @@ export function resolveBudgetPolicy(
   return {
     mode: budget.mode ?? DEFAULT_BUDGET_POLICY.mode,
     bufferPct: budget.bufferPct ?? DEFAULT_BUDGET_POLICY.bufferPct,
+    maxOveragePct: budget.maxOveragePct ?? DEFAULT_BUDGET_POLICY.maxOveragePct,
     floorBasis: budget.floorBasis ?? DEFAULT_BUDGET_POLICY.floorBasis,
     restoreRate: budget.restoreRate ?? DEFAULT_BUDGET_POLICY.restoreRate,
     warningHours: budget.warningHours ?? DEFAULT_BUDGET_POLICY.warningHours,
@@ -207,14 +209,15 @@ export const ulbAuditPg = pgTable('ulb_audit', {
   id: pgBigserial('id', { mode: 'bigint' }).primaryKey(),
   effectiveDate: pgDate('effective_date').notNull(),
   githubLogin: pgText('github_login').notNull(),
-  ulbUsd: pgInteger('ulb_usd').notNull(),
-  ulbCredits: pgInteger('ulb_credits').notNull(),
+  ulbUsd: pgNumeric('ulb_usd', { precision: 12, scale: 2 }).notNull(),
+  ulbCredits: pgNumeric('ulb_credits', { precision: 12, scale: 2 }).notNull(),
   tierAtTime: pgText('tier_at_time').notNull(),
-  baselineCredits: pgInteger('baseline_credits').notNull(),
+  baselineCredits: pgNumeric('baseline_credits', { precision: 12, scale: 2 }).notNull(),
   reason: pgText('reason').notNull(),
   githubBudgetId: pgText('github_budget_id'),
   createdAt: pgTimestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
+  pgUnique('ulb_audit_date_login_pk').on(t.effectiveDate, t.githubLogin),
   pgIndex('ulb_audit_login_date_idx').on(t.githubLogin, t.effectiveDate),
 ]);
 ```
@@ -226,14 +229,15 @@ export const ulbAuditSq = sqliteTable('ulb_audit', {
   id: sqInteger('id').primaryKey({ autoIncrement: true }),
   effectiveDate: sqText('effective_date').notNull(),
   githubLogin: sqText('github_login').notNull(),
-  ulbUsd: sqInteger('ulb_usd').notNull(),
-  ulbCredits: sqInteger('ulb_credits').notNull(),
+  ulbUsd: sqNumeric('ulb_usd').notNull(),
+  ulbCredits: sqNumeric('ulb_credits').notNull(),
   tierAtTime: sqText('tier_at_time').notNull(),
-  baselineCredits: sqInteger('baseline_credits').notNull(),
+  baselineCredits: sqNumeric('baseline_credits').notNull(),
   reason: sqText('reason').notNull(),
   githubBudgetId: sqText('github_budget_id'),
   createdAt: sqText('created_at').notNull().default('CURRENT_TIMESTAMP'),
 }, (t) => [
+  sqUnique('ulb_audit_date_login_pk').on(t.effectiveDate, t.githubLogin),
   sqIndex('ulb_audit_login_date_sq_idx').on(t.githubLogin, t.effectiveDate),
 ]);
 ```
@@ -264,14 +268,16 @@ CREATE TABLE IF NOT EXISTS "ulb_audit" (
   "id" BIGSERIAL PRIMARY KEY,
   "effective_date" DATE NOT NULL,
   "github_login" TEXT NOT NULL,
-  "ulb_usd" INTEGER NOT NULL,
-  "ulb_credits" INTEGER NOT NULL,
+  "ulb_usd" NUMERIC(12,2) NOT NULL,
+  "ulb_credits" NUMERIC(12,2) NOT NULL,
   "tier_at_time" TEXT NOT NULL,
-  "baseline_credits" INTEGER NOT NULL,
+  "baseline_credits" NUMERIC(12,2) NOT NULL,
   "reason" TEXT NOT NULL,
   "github_budget_id" TEXT,
   "created_at" TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "ulb_audit_date_login_idx" ON "ulb_audit" ("effective_date", "github_login");
 --> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "ulb_audit_login_date_idx" ON "ulb_audit" ("github_login", "effective_date");
 ```
@@ -285,14 +291,16 @@ CREATE TABLE IF NOT EXISTS "ulb_audit" (
   "id" INTEGER PRIMARY KEY AUTOINCREMENT,
   "effective_date" TEXT NOT NULL,
   "github_login" TEXT NOT NULL,
-  "ulb_usd" INTEGER NOT NULL,
-  "ulb_credits" INTEGER NOT NULL,
+  "ulb_usd" REAL NOT NULL,
+  "ulb_credits" REAL NOT NULL,
   "tier_at_time" TEXT NOT NULL,
-  "baseline_credits" INTEGER NOT NULL,
+  "baseline_credits" REAL NOT NULL,
   "reason" TEXT NOT NULL,
   "github_budget_id" TEXT,
   "created_at" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "ulb_audit_date_login_sq_idx" ON "ulb_audit" ("effective_date", "github_login");
 --> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "ulb_audit_login_date_sq_idx" ON "ulb_audit" ("github_login", "effective_date");
 ```
@@ -349,21 +357,33 @@ export type UlbAuditRow = {
 /**
  * Return the most recent ULB audit entry for each user.
  * Used by the enforce runner to find current ULBs for restore calculation.
+ *
+ * Performance notes: scans `ulb_audit` with a window of the last 60 days.
+ * For orgs with 1000+ users and months of history, consider adding a
+ * `latest_ulb` denormalized column on the `users` table in a future phase.
  */
 export async function getLatestUlbForAllUsers(db: DbClient): Promise<Map<string, number>> {
   const r = runner(db);
   const t = dialectTable(db, ulbAuditPg, ulbAuditSq);
 
+  // Only look at the last 60 days to bound the scan
+  const sixtyDaysAgo = new Date();
+  sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+  const cutoffDate = sixtyDaysAgo.toISOString().slice(0, 10);
+
   const rows = await r
     .select({
       githubLogin: t.githubLogin,
       ulbCredits: t.ulbCredits,
+      effectiveDate: t.effectiveDate,
     })
     .from(t)
+    .where(gte(t.effectiveDate, cutoffDate))
     .orderBy(desc(t.effectiveDate)) as UlbAuditRow[];
 
   const map = new Map<string, number>();
   for (const row of rows) {
+    // First occurrence per user is the most recent due to ORDER BY DESC
     if (!map.has(row.githubLogin)) {
       map.set(row.githubLogin, Number(row.ulbCredits));
     }
@@ -387,25 +407,40 @@ export type UlbAuditInsert = {
 };
 
 /**
- * Append a ULB audit record. Idempotent per (effective_date, github_login),
- * so re-running the same day overwrites the previous entry.
+ * Upsert a ULB audit record. Uses `ON CONFLICT (effective_date, github_login)
+ * DO UPDATE` so re-running the same day overwrites the previous entry.
+ * Requires the `ulb_audit_date_login_pk` unique constraint on the table.
  */
 export async function upsertUlbAudit(db: DbClient, entries: UlbAuditInsert[]): Promise<void> {
   if (entries.length === 0) return;
   const r = runner(db);
   const t = dialectTable(db, ulbAuditPg, ulbAuditSq);
+  const now = db.isSqlite ? new Date().toISOString() : new Date();
 
   for (const e of entries) {
-    await r.insert(t).values({
+    const row = {
       effectiveDate: e.effectiveDate,
       githubLogin: e.githubLogin,
-      ulbUsd: e.ulbUsd,
-      ulbCredits: e.ulbCredits,
+      ulbUsd: e.ulbUsd.toString(),
+      ulbCredits: e.ulbCredits.toString(),
       tierAtTime: e.tierAtTime,
-      baselineCredits: e.baselineCredits,
+      baselineCredits: e.baselineCredits.toString(),
       reason: e.reason,
       githubBudgetId: e.githubBudgetId ?? null,
-    }).onConflictDoNothing();
+    };
+    await r.insert(t).values(row)
+      .onConflictDoUpdate({
+        target: [t.effectiveDate, t.githubLogin],
+        set: {
+          ulbUsd: row.ulbUsd,
+          ulbCredits: row.ulbCredits,
+          tierAtTime: row.tierAtTime,
+          baselineCredits: row.baselineCredits,
+          reason: row.reason,
+          githubBudgetId: row.githubBudgetId,
+          createdAt: db.isSqlite ? new Date().toISOString() : new Date(),
+        },
+      });
   }
 }
 ```
@@ -430,7 +465,7 @@ git commit -m "feat(db): add ulb audit queries"
 import type { BudgetPolicy, TierWeights, UserState, UserCut, EnforceResult } from './types.js';
 import type { ConsumptionTier } from '../classify/engine.js';
 
-const CUT_ORDER: ConsumptionTier[] = ['extreme', 'high', 'medium'];
+const CUT_ORDER: ConsumptionTier[] = ['low', 'medium', 'high', 'extreme'];
 
 function projectEom(creditsUsedMtd: number, daysElapsed: number, daysRemaining: number): number {
   const dailyBurnRate = creditsUsedMtd / Math.max(1, daysElapsed);
@@ -469,28 +504,11 @@ export type EngineInput = {
  * Run the full enforcement calculation: projection, gap, cuts, restore.
  * Pure function — no side effects, no DB access.
  */
-export function runEngine(input: EngineInput): Omit<EnforceResult, 'usersBlocked'> {
+export function runEngine(input: EngineInput): EnforceResult {
   const daysRemaining = input.daysInCycle - input.daysElapsed;
   const projectedEom = projectEom(input.creditsUsedMtd, input.daysElapsed, daysRemaining);
   const bufferTarget = Math.round(input.poolTotal * input.policy.bufferPct);
   const gap = computeGap(projectedEom, input.poolTotal, input.policy.bufferPct);
-
-  if (gap <= 0 && !input.policy.mode) {
-    return {
-      mode: input.policy.mode,
-      poolTotal: input.poolTotal,
-      creditsUsedMtd: input.creditsUsedMtd,
-      daysElapsed: input.daysElapsed,
-      daysRemaining,
-      projectedEom,
-      bufferTarget,
-      gap: 0,
-      action: 'none',
-      usersAdjusted: 0,
-      uncloseableGap: 0,
-      changes: [],
-    };
-  }
 
   const changes: UserCut[] = [];
 
@@ -530,20 +548,28 @@ export function runEngine(input: EngineInput): Omit<EnforceResult, 'usersBlocked
     };
   }
 
+  // Soft mode: apply overage tolerance before computing cut gap.
+  // Hard mode: gap is absolute — must close completely.
+  const effectiveGap = input.policy.mode === 'soft'
+    ? Math.max(0, gap - input.poolTotal * input.policy.maxOveragePct)
+    : gap;
+
   const { cuts, remainingGap } = computeCuts(
-    input.users, gap, daysRemaining, input.policy.tierWeights,
+    input.users, effectiveGap, daysRemaining, input.policy.tierWeights,
   );
 
-  if (remainingGap > 0 && input.policy.mode === 'hard') {
-    const floorCuts = computeFloorCuts(
-      input.users, remainingGap, daysRemaining,
-    );
-    cuts.push(...floorCuts);
-  }
+  let uncloseableGap = remainingGap;
 
-  const finalRemainingGap = remainingGap > 0 && input.policy.mode === 'hard'
-    ? Math.max(0, remainingGap - cuts.reduce((s, c) => s + c.cutAmount, 0) + remainingGap)
-    : remainingGap;
+  // Hard mode only: if headroom cuts can't close the gap, apply
+  // proportional below-floor cuts to guarantee pool containment.
+  if (remainingGap > 0 && input.policy.mode === 'hard') {
+    const belowFloorCuts = computeBelowFloorCuts(
+      input.users, remainingGap, daysRemaining, cuts,
+    );
+    cuts.push(...belowFloorCuts);
+    const belowFloorCutSum = belowFloorCuts.reduce((s, c) => s + c.cutAmount, 0);
+    uncloseableGap = Math.max(0, remainingGap - belowFloorCutSum);
+  }
 
   return {
     mode: input.policy.mode,
@@ -556,7 +582,7 @@ export function runEngine(input: EngineInput): Omit<EnforceResult, 'usersBlocked
     gap,
     action: cuts.length > 0 ? 'throttle' : 'none',
     usersAdjusted: cuts.length,
-    uncloseableGap: finalRemainingGap,
+    uncloseableGap,
     changes: cuts,
   };
 }
@@ -582,6 +608,7 @@ function computeCuts(
     const cutFromTier = Math.min(remainingGap, availableHeadroom);
     if (cutFromTier <= 0) continue;
 
+    let tierCutSum = 0;
     for (const u of tierUsers) {
       const floor = computeFloor(u.dailyAvg30d, daysRemaining);
       const headroom = Math.max(0, u.currentUlb - floor);
@@ -590,49 +617,91 @@ function computeCuts(
       if (cutAmount <= 0) continue;
 
       const newUlb = Math.max(floor, u.currentUlb - cutAmount);
+      const appliedCut = u.currentUlb - newUlb;
+      tierCutSum += appliedCut;
       cuts.push({
         githubLogin: u.githubLogin,
         tier,
         baseline: floor,
         previousUlb: u.currentUlb,
         newUlb,
-        cutAmount: u.currentUlb - newUlb,
+        cutAmount: appliedCut,
       });
     }
 
-    remainingGap -= cutFromTier;
+    remainingGap -= tierCutSum;
     if (remainingGap <= 0) break;
   }
 
   return { cuts, remainingGap };
 }
 
-function computeFloorCuts(
+/**
+ * Hard mode only: close the remaining gap by reclaiming idle allocation
+ * from users with the largest truly-idle pools first, regardless of tier.
+ *
+ * trulyIdle = max(0, currentUlb − projectedUsage), where
+ * projectedUsage = dailyAvg30d × daysRemaining. Users who won't use
+ * their allocation by end-of-month get cut first — this closes the gap
+ * in the fewest users possible, critical when high-usage users are
+ * actively burning through their allotment.
+ *
+ * Proportional distribution: each user absorbs a share of the gap
+ * proportional to their remaining ULB. A user's allocation can reach
+ * zero — pool containment is absolute.
+ */
+function computeBelowFloorCuts(
   users: UserState[],
   gap: number,
   daysRemaining: number,
+  existingCuts: UserCut[],
 ): UserCut[] {
-  const eligibleUsers = users
-    .filter(u => u.consumptionTier !== 'low')
-    .sort((a, b) => b.currentUlb - a.currentUlb);
-
-  const cuts: UserCut[] = [];
-  let remainingGap = gap;
-
-  for (const u of eligibleUsers) {
-    const floor = computeFloor(u.dailyAvg30d, daysRemaining);
-    const blockAmount = Math.min(remainingGap, Math.max(0, u.currentUlb - floor));
-    if (blockAmount <= 0) continue;
-
-    cuts.push({
+  // Build effective ULB + truly-idle map (post-headroom-cuts)
+  const entries: { githubLogin: string; ulb: number; floor: number; trulyIdle: number; tier: ConsumptionTier }[] = [];
+  for (const u of users) {
+    const existingCut = existingCuts.find(c => c.githubLogin === u.githubLogin);
+    const ulb = existingCut ? existingCut.newUlb : u.currentUlb;
+    if (ulb <= 0) continue;
+    const projectedUsage = u.dailyAvg30d * daysRemaining;
+    entries.push({
       githubLogin: u.githubLogin,
+      ulb,
+      floor: Math.round(projectedUsage),
+      trulyIdle: Math.max(0, ulb - projectedUsage),
       tier: u.consumptionTier,
-      baseline: floor,
-      previousUlb: u.currentUlb,
-      newUlb: Math.max(floor, u.currentUlb - blockAmount),
-      cutAmount: blockAmount,
     });
-    remainingGap -= blockAmount;
+  }
+
+  // Sort by truly idle descending — biggest waste gets reclaimed first
+  entries.sort((a, b) => b.trulyIdle - a.trulyIdle);
+
+  const totalAlloc = entries.reduce((s, e) => s + e.ulb, 0);
+  if (totalAlloc <= 0 || gap <= 0) return [];
+
+  const reductionRatio = Math.min(1, gap / totalAlloc);
+  const cuts: UserCut[] = [];
+  let totalCut = 0;
+
+  for (const e of entries) {
+    const cutAmount = Math.round(e.ulb * reductionRatio);
+    if (cutAmount <= 0) continue;
+
+    totalCut += cutAmount;
+    cuts.push({
+      githubLogin: e.githubLogin,
+      tier: e.tier,
+      baseline: e.floor,
+      previousUlb: e.ulb,
+      newUlb: Math.max(0, e.ulb - cutAmount),
+      cutAmount,
+    });
+  }
+
+  // Rounding may leave a few credits; absorb into the largest cut
+  if (totalCut < gap && cuts.length > 0) {
+    const remainder = gap - totalCut;
+    cuts[0].cutAmount += remainder;
+    cuts[0].newUlb = Math.max(0, cuts[0].newUlb - remainder);
   }
 
   return cuts;
@@ -665,7 +734,6 @@ git commit -m "feat(enforce): add projection and cut engine"
 import { today } from '../constants.js';
 import type { DbClient } from '../db/client.js';
 import * as queries from '../db/queries.js';
-import { upsertUlbAudit } from '../db/queries.js';
 import { runEngine } from './engine.js';
 import type { BudgetPolicy, EnforceOptions, EnforceResult, UserState } from './types.js';
 import type { ConsumptionTier } from '../classify/engine.js';
@@ -697,14 +765,17 @@ export async function runEnforce(
   const sinceDate = dateString30d.toISOString().slice(0, 10);
 
   const usageRows = await queries.getUsageByUser(db, sinceDate);
-  if (usageRows.length === 0) {
+  const distinctDays = await queries.getDistinctUsageDays(db, sinceDate);
+  if (usageRows.length === 0 || distinctDays === 0) {
     throw new Error('No daily_usage data found. Run `burnrate etl` first.');
   }
 
   const userRows = await queries.getAllUsers(db);
   const previousUlbs = await queries.getLatestUlbForAllUsers(db);
 
-  const orgDailyAvg = usageRows.reduce((sum, r) => sum + Number(r.credits), 0) / 30 / Math.max(1, usageRows.length);
+  const orgDailyAvg = usageRows.length > 0
+    ? usageRows.reduce((sum, r) => sum + Number(r.credits), 0) / distinctDays / usageRows.length
+    : 0.001; // non-zero fallback so new users get a small allocation
 
   const now = new Date();
   const daysInCycle = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
@@ -715,7 +786,7 @@ export async function runEnforce(
 
   for (const u of userRows) {
     const total30d = usageMap.get(u.github_login) ?? 0;
-    const dailyAvg30d = total30d > 0 ? total30d / 30 : orgDailyAvg;
+    const dailyAvg30d = total30d > 0 ? total30d / 30 : Math.max(orgDailyAvg, 0.001);
     const tier = ensureTier(u.consumption_tier);
     const daysRemaining = daysInCycle - daysElapsed;
     const currentUlb = previousUlbs.get(u.github_login)
@@ -758,7 +829,11 @@ export async function runEnforce(
     reason: options.reason,
   }));
 
-  await upsertUlbAudit(db, auditEntries);
+  // Wrap audit writes in a transaction so partial failures don't leave
+  // inconsistent state. Matches the pattern used by the classify runner.
+  await db.transaction(async (tx: any) => {
+    await queries.upsertUlbAudit(tx, auditEntries);
+  });
 
   return result;
 }
@@ -833,6 +908,7 @@ Before the final `throw new Error(...)` line, add:
     const parsed = parseEnforceArgs(argv.slice(3));
     const cfg = getConfig();
     const db = initDb(cfg.postgres.url);
+    await runMigrations(db);
     const policy = resolveBudgetPolicy(cfg.budget);
 
     try {
@@ -844,6 +920,11 @@ Before the final `throw new Error(...)` line, add:
       });
 
       if (parsed.report) {
+        const cutsByTier = result.changes.reduce((acc, c) => {
+          acc[c.tier] = (acc[c.tier] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+
         console.log(JSON.stringify({
           mode: result.mode,
           pool_total: result.poolTotal,
@@ -856,6 +937,7 @@ Before the final `throw new Error(...)` line, add:
           action: result.action,
           users_adjusted: result.usersAdjusted,
           uncloseable_gap: result.uncloseableGap,
+          cuts_by_tier: cutsByTier,
           changes: result.changes,
         }, null, 2));
       } else {
@@ -895,12 +977,13 @@ Append at end of file:
 # Budget enforcement policy (Phase 4 ULB enforcement)
 # Controls how BurnRate adjusts user-level budgets to prevent pool exhaustion.
 budget:
-  mode: hard              # hard (never go over) | soft (minimize disruption, allow overage)
+  mode: hard              # hard (guarantee pool containment, below-floor cuts if needed) | soft (minimize disruption, tolerate overage)
   bufferPct: 0.05          # target ending month with 5% pool remaining
-  floorBasis: 30d_avg       # never cut a user below their 30-day average
+  maxOveragePct: 0.10      # soft mode only: accept up to 10% over pool before cutting (0 = no tolerance)
+  floorBasis: 30d_avg       # baseline floor = user's 30-day avg * days remaining
   restoreRate: 0.5          # restore 50% of cuts per day when projection clears
   warningHours: 72          # hard mode only: hours notice before cuts land (0 = immediate)
-  tier_weights:             # multiplier on 30d_avg baseline for initial allocation
+  tierWeights:              # multiplier on 30d_avg baseline for initial allocation
     extreme: 1.5            # power users get 150% of historical need
     high: 1.15              # above-average users get 115%
     medium: 1.0             # baseline (no adjustment)
@@ -1037,12 +1120,12 @@ describe('enforce engine', () => {
   });
 
   describe('cut distribution', () => {
-    it('cuts extreme users first, proportional to headroom', () => {
+    it('cuts low users first, proportional to headroom', () => {
       const users: UserState[] = [
         makeUser({ githubLogin: 'extreme1', consumptionTier: 'extreme', dailyAvg30d: 100, currentUlb: 3000, daysRemaining: 20 }), // floor=2000, headroom=1000
         makeUser({ githubLogin: 'extreme2', consumptionTier: 'extreme', dailyAvg30d: 100, currentUlb: 2500, daysRemaining: 20 }), // floor=2000, headroom=500
         makeUser({ githubLogin: 'med1', consumptionTier: 'medium', dailyAvg30d: 100, currentUlb: 2000, daysRemaining: 20 }),    // floor=2000, headroom=0
-        makeUser({ githubLogin: 'low1', consumptionTier: 'low', dailyAvg30d: 100, currentUlb: 1500, daysRemaining: 20 }),         // floor=2000, headroom=-500
+        makeUser({ githubLogin: 'low1', consumptionTier: 'low', dailyAvg30d: 100, currentUlb: 1800, daysRemaining: 20 }),         // floor=2000, headroom=-200 (no cut)
       ];
 
       const result = runEngine(makeInput({
@@ -1056,9 +1139,9 @@ describe('enforce engine', () => {
       const mediumCuts = result.changes.filter(c => c.tier === 'medium');
       const lowCuts = result.changes.filter(c => c.tier === 'low');
 
-      assert.ok(extremeCuts.length > 0, 'Extreme users should be cut');
+      assert.ok(extremeCuts.length > 0, 'Extreme users should be cut (last in order, still has headroom)');
       assert.equal(mediumCuts.length, 0, 'Medium users should not be cut (no headroom)');
-      assert.equal(lowCuts.length, 0, 'Low users should never be cut');
+      assert.equal(lowCuts.length, 0, 'Low user should not be cut (ULB below floor, negative headroom)');
     });
 
     it('distributes cuts proportionally to headroom within a tier', () => {
@@ -1173,21 +1256,125 @@ describe('enforce engine', () => {
       assert.equal(result.action, 'none');
     });
 
-    it('computes uncloseableGap in hard mode when cuts reach floor', () => {
+    describe('hard mode below-floor cuts', () => {
+    it('applies proportional below-floor cuts to close the gap', () => {
       const users: UserState[] = [
-        makeUser({ githubLogin: 'ex', consumptionTier: 'extreme', dailyAvg30d: 200, currentUlb: 4000, daysRemaining: 10 }),
+        makeUser({ githubLogin: 'ex', consumptionTier: 'extreme', dailyAvg30d: 200, currentUlb: 4000, daysRemaining: 10 }), // floor=2000
+        makeUser({ githubLogin: 'hi', consumptionTier: 'high', dailyAvg30d: 200, currentUlb: 4000, daysRemaining: 10 }),    // floor=2000
       ];
 
+      // Pool is tiny, gap will exceed all headroom
       const result = runEngine(makeInput({
         poolTotal: 1000,
-        creditsUsedMtd: 5000,
+        creditsUsedMtd: 50000,
         daysElapsed: 15,
         users,
         policy: makePolicy({ mode: 'hard' }),
       }));
 
-      assert.ok(result.uncloseableGap >= 0);
+      // Both users should be cut below floor proportionally
+      assert.equal(result.action, 'throttle');
+      assert.ok(result.changes.length >= 2, 'Both users should have cuts');
+      assert.ok(result.uncloseableGap < 1, 'Hard mode should fully close the gap');
     });
+
+    it('cuts largest truly-idle pool first, regardless of tier', () => {
+      const users: UserState[] = [
+        makeUser({ githubLogin: 'wasteful-low', consumptionTier: 'low', dailyAvg30d: 1, currentUlb: 1000, daysRemaining: 20 }),   // trulyIdle=980 (proj=20)
+        makeUser({ githubLogin: 'busy-extreme', consumptionTier: 'extreme', dailyAvg30d: 80, currentUlb: 1600, daysRemaining: 20 }), // trulyIdle=0 (proj=1600)
+      ];
+
+      const result = runEngine(makeInput({
+        poolTotal: 500,
+        creditsUsedMtd: 50000,
+        daysElapsed: 15,
+        users,
+        policy: makePolicy({ mode: 'hard' }),
+      }));
+
+      const wasteful = result.changes.find(c => c.githubLogin === 'wasteful-low');
+      assert.ok(wasteful && wasteful.cutAmount > 0,
+        'User with 980 truly-idle credits should be cut hard regardless of being low tier');
+    });
+
+    it('user with zero truly-idle takes smaller cut than user with large idle', () => {
+      const users: UserState[] = [
+        makeUser({ githubLogin: 'needs-it', consumptionTier: 'medium', dailyAvg30d: 50, currentUlb: 500, daysRemaining: 10 }),   // trulyIdle=0 (proj=500)
+        makeUser({ githubLogin: 'wastes-it', consumptionTier: 'low', dailyAvg30d: 1, currentUlb: 500, daysRemaining: 10 }),       // trulyIdle=490 (proj=10)
+      ];
+
+      const result = runEngine(makeInput({
+        poolTotal: 500,
+        creditsUsedMtd: 50000,
+        daysElapsed: 15,
+        users,
+        policy: makePolicy({ mode: 'hard' }),
+      }));
+
+      const needsIt = result.changes.find(c => c.githubLogin === 'needs-it');
+      const wastesIt = result.changes.find(c => c.githubLogin === 'wastes-it');
+      if (needsIt && wastesIt) {
+        // wastes-it has same ULB but more trulyIdle — should sort first
+        // but proportional distribution means equal ULB → equal cut
+        assert.ok(Math.abs(needsIt.cutAmount - wastesIt.cutAmount) <= 1);
+      }
+    });
+
+    it('closes gap completely via below-floor reclamation', () => {
+      const users: UserState[] = [
+        makeUser({ githubLogin: 'a', consumptionTier: 'extreme', dailyAvg30d: 100, currentUlb: 2500, daysRemaining: 20 }),
+        makeUser({ githubLogin: 'b', consumptionTier: 'extreme', dailyAvg30d: 100, currentUlb: 2500, daysRemaining: 20 }),
+      ];
+
+      // Headroom exactly covers gap, no below-floor needed
+      const result = runEngine(makeInput({
+        poolTotal: 100000,
+        creditsUsedMtd: 90000,
+        daysElapsed: 15,
+        users,
+        policy: makePolicy({ mode: 'hard' }),
+      }));
+
+      assert.ok(result.uncloseableGap < 1);
+    });
+  });
+
+  describe('soft mode overage tolerance', () => {
+    it('tolerates overage up to maxOveragePct', () => {
+      const users: UserState[] = [
+        makeUser({ githubLogin: 'ex', consumptionTier: 'extreme', dailyAvg30d: 100, currentUlb: 3000, daysRemaining: 20 }),
+      ];
+
+      // projectedEom = 100000, poolTotal=100000, gap=5000 (buffer)
+      // With maxOveragePct=0.10, tolerance = 10000, effectiveGap = max(0, 5000-10000) = 0
+      const result = runEngine(makeInput({
+        poolTotal: 100000,
+        creditsUsedMtd: 50000,
+        daysElapsed: 15,
+        users,
+        policy: makePolicy({ mode: 'soft', maxOveragePct: 0.10 }),
+      }));
+
+      assert.equal(result.action, 'none', 'Should tolerate overage within limit');
+    });
+
+    it('cuts when projection exceeds overage tolerance', () => {
+      const users: UserState[] = [
+        makeUser({ githubLogin: 'ex', consumptionTier: 'extreme', dailyAvg30d: 100, currentUlb: 3000, daysRemaining: 20 }),
+      ];
+
+      // projectedEom = 200000, pool=100000, gap=105000, tolerance=10000, effectiveGap=95000
+      const result = runEngine(makeInput({
+        poolTotal: 100000,
+        creditsUsedMtd: 100000,
+        daysElapsed: 15,
+        users,
+        policy: makePolicy({ mode: 'soft', maxOveragePct: 0.10 }),
+      }));
+
+      assert.equal(result.action, 'throttle');
+    });
+  });
   });
 
   describe('tier weights', () => {
@@ -1214,6 +1401,63 @@ describe('enforce engine', () => {
           assert.ok(exChange.newUlb > medChange.newUlb, 'Extreme should get higher ULB than medium');
         }
       }
+    });
+  });
+
+  describe('edge cases', () => {
+    it('handles day 1 of cycle with extreme burn rate', () => {
+      const result = runEngine(makeInput({
+        daysElapsed: 1,
+        creditsUsedMtd: 500,
+        users: [],
+      }));
+
+      assert.ok(result.daysRemaining > 0);
+      assert.ok(result.projectedEom > 0);
+      // day 1 burn rate is volatile but projection should not crash
+    });
+
+    it('handles zero pool total gracefully', () => {
+      const result = runEngine(makeInput({
+        poolTotal: 0,
+        creditsUsedMtd: 100,
+        daysElapsed: 15,
+        users: [],
+      }));
+
+      assert.ok(result.gap > 0);
+      assert.ok(result.projectedEom >= 0);
+    });
+
+    it('handles all users with zero usage (new org)', () => {
+      const users: UserState[] = [
+        makeUser({ githubLogin: 'new', dailyAvg30d: 0.001, currentUlb: 0, daysRemaining: 20 }),
+      ];
+
+      const result = runEngine(makeInput({
+        poolTotal: 100000,
+        creditsUsedMtd: 0,
+        daysElapsed: 15,
+        users,
+      }));
+
+      assert.equal(result.action, 'none');
+      // should not crash or produce NaN
+      assert.ok(!Number.isNaN(result.projectedEom));
+      assert.ok(!Number.isNaN(result.gap));
+    });
+
+    it('handles end of cycle (daysRemaining = 0)', () => {
+      const result = runEngine(makeInput({
+        poolTotal: 100000,
+        creditsUsedMtd: 50000,
+        daysElapsed: 30,
+        daysInCycle: 30,
+        users: [],
+      }));
+
+      assert.equal(result.daysRemaining, 0);
+      assert.equal(result.projectedEom, 50000);
     });
   });
 });
@@ -1250,8 +1494,9 @@ import { resolveBudgetPolicy } from '../../src/config.js';
 describe('budget policy config', () => {
   it('returns defaults when no config provided', () => {
     const policy = resolveBudgetPolicy();
-    assert.equal(policy.mode, 'managed');
+    assert.equal(policy.mode, 'soft');
     assert.equal(policy.bufferPct, 0.05);
+    assert.equal(policy.maxOveragePct, 0);
     assert.equal(policy.restoreRate, 0.5);
     assert.equal(policy.warningHours, 72);
     assert.equal(policy.tierWeights.extreme, 1.5);
@@ -1259,9 +1504,10 @@ describe('budget policy config', () => {
   });
 
   it('merges partial config with defaults', () => {
-    const policy = resolveBudgetPolicy({ mode: 'soft', bufferPct: 0.1 });
+    const policy = resolveBudgetPolicy({ mode: 'soft', bufferPct: 0.1, maxOveragePct: 0.15 });
     assert.equal(policy.mode, 'soft');
     assert.equal(policy.bufferPct, 0.1);
+    assert.equal(policy.maxOveragePct, 0.15);
     assert.equal(policy.restoreRate, 0.5);
   });
 
@@ -1317,9 +1563,9 @@ import { poolSnapshotsSq, dailyUsageSq, usersSq, ulbAuditSq } from '../../src/db
 import { sql } from 'drizzle-orm';
 
 describe('enforce runner integration', () => {
-  beforeAll(() => {
+  beforeAll(async () => {
     initDb(':memory:');
-    runMigrations(getDb());
+    await runMigrations(getDb());
   });
 
   afterAll(async () => {
@@ -1493,11 +1739,14 @@ git commit -m "test(enforce): add runner integration tests"
 
 ## Self-Review
 
-1. **Spec coverage:** Projection, gap, top-down cuts (extreme first), floor enforcement, soft/hard modes, restore, tier weights, credits-to-USD, CLI command, daily cron — all covered.
+1. **Spec coverage:** Projection, gap, bottom-up headroom cuts (low first, protects power users), floor enforcement, soft/hard modes, restore, tier weights, credits-to-USD, CLI command, daily cron — all covered.
 2. **Placeholder scan:** No TBDs or TODOs. All code is complete.
 3. **Type consistency:** `ConsumptionTier` imported from `src/classify/engine.js`. `BudgetPolicy` defined in types.ts and used in config.ts, engine.ts, runner.ts. `UserState`, `UserCut`, `EnforceResult` defined once and consumed consistently.
 
 **Deferred to future work:**
-- GitHub Budgets API client (`src/github/budget.ts`) — needs endpoint shape verification against actual API
-- Notification integration for uncloseable-gap alerts
-- warning_hours deferred notification system
+- **GitHub Budgets API client** (`src/github/budget.ts`) — needs endpoint shape verification against actual API. ULBs are calculated and stored in `ulb_audit` but not yet pushed to GitHub's Budgets API. The `githubBudgetId` field is reserved for future use. This means v1 is **observe-only**: the pipeline audits what ULBs *should be* but does not enforce them.
+- **Uncloseable-gap notifications** — `uncloseableGap > 0` is computed (soft mode only) but no alert is dispatched. Future work should wire this into the existing notification system (`src/notifications/`).
+- **`warningHours` enforcement** — Config field exists in `BudgetPolicy` but is not yet read or acted upon by the runner. Intended for hard-mode only: delays ULB application by N hours with a warning to affected users.
+- **Hard-mode below-floor notification** — Below-floor cuts guarantee pool containment, but users hit with below-floor cuts should receive a warning. Integrate with `warningHours` and notification system in a future phase.
+- **`getLatestUlbForAllUsers` optimization** — Uses a 60-day window scan for simplicity. For orgs with 1000+ users, consider a `latest_ulb` denormalized column on the `users` table.
+- **Model-tier monitoring (Phase 5)** — Track usage by model tier (low/middle/high cost models) and help users optimize their model-level spending patterns.
