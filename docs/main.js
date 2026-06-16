@@ -6,6 +6,9 @@ const nav = document.querySelector('.site-nav');
 const demoRun = document.querySelector('[data-demo-run]');
 const demoOutput = document.querySelector('[data-demo-output]');
 const copyButtons = [...document.querySelectorAll('[data-copy-button]')];
+const commandSearch = document.getElementById('command-search');
+const commandsTable = document.getElementById('commands-table');
+const searchStatus = document.getElementById('search-status');
 
 const samples = [
   `$ npm run forecast\n✓ loaded 28 days of usage data\n✓ raw reports preserved in raw_reports\n→ projected month-end burn: 78%\n→ risk: within budget`,
@@ -26,6 +29,44 @@ function setActiveSection(id) {
   });
 }
 
+function closeMobileNav() {
+  if (!navToggle || !nav) {
+    return;
+  }
+
+  navToggle.setAttribute('aria-expanded', 'false');
+  nav.removeAttribute('data-open');
+  navToggle.textContent = 'Menu';
+}
+
+function trapFocusInNav(e) {
+  if (!nav || !navToggle || e.key !== 'Tab') {
+    return;
+  }
+
+  const focusable = [...nav.querySelectorAll('a[href], button')];
+  if (focusable.length === 0) {
+    return;
+  }
+
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault();
+    navToggle.focus();
+  } else if (e.shiftKey && document.activeElement === navToggle) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === navToggle) {
+    e.preventDefault();
+    first.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    navToggle.focus();
+  }
+}
+
 if (navToggle && nav) {
   navToggle.addEventListener('click', () => {
     const isOpen = navToggle.getAttribute('aria-expanded') === 'true';
@@ -33,13 +74,19 @@ if (navToggle && nav) {
     navToggle.setAttribute('aria-expanded', String(nextOpen));
     nav.toggleAttribute('data-open', nextOpen);
     navToggle.textContent = nextOpen ? 'Close' : 'Menu';
+
+    if (nextOpen) {
+      document.addEventListener('keydown', trapFocusInNav);
+      nav.querySelector('a')?.focus();
+    } else {
+      document.removeEventListener('keydown', trapFocusInNav);
+    }
   });
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && navToggle.getAttribute('aria-expanded') === 'true') {
-      navToggle.setAttribute('aria-expanded', 'false');
-      nav.removeAttribute('data-open');
-      navToggle.textContent = 'Menu';
+      closeMobileNav();
+      document.removeEventListener('keydown', trapFocusInNav);
       navToggle.focus();
     }
   });
@@ -52,9 +99,8 @@ navLinks.forEach((link) => {
     }
 
     if (window.innerWidth < 900) {
-      navToggle.setAttribute('aria-expanded', 'false');
-      nav.removeAttribute('data-open');
-      navToggle.textContent = 'Menu';
+      closeMobileNav();
+      document.removeEventListener('keydown', trapFocusInNav);
     }
   });
 });
@@ -157,30 +203,41 @@ if (prefersReducedMotion) {
   document.documentElement.style.scrollBehavior = 'auto';
 }
 
-const commandSearch = document.getElementById('command-search');
-const commandsTable = document.getElementById('commands-table');
-
 if (commandSearch && commandsTable) {
   const rows = [...commandsTable.querySelectorAll('tbody tr')];
   commandSearch.addEventListener('input', (e) => {
-    const query = e.target.value.toLowerCase();
+    const query = e.target.value.toLowerCase().trim();
+    let visibleCount = 0;
+
     rows.forEach((row) => {
       const text = row.textContent.toLowerCase();
-      row.style.display = text.includes(query) ? '' : 'none';
+      const isVisible = text.includes(query);
+      row.style.display = isVisible ? '' : 'none';
+      if (isVisible) {
+        visibleCount++;
+      }
     });
+
+    if (searchStatus) {
+      const noun = visibleCount === 1 ? 'command' : 'commands';
+      searchStatus.textContent = query === '' ? '' : `${visibleCount} ${noun} shown`;
+    }
   });
 
   document.addEventListener('keydown', (e) => {
-    if (e.key === '/' && document.activeElement !== commandSearch) {
+    if (e.key === '/' && document.activeElement !== commandSearch && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
       e.preventDefault();
       commandSearch.focus();
     }
   });
 }
 
-// Global hotkey: press 'R' to run the terminal sample (unless typing in input)
+// Hotkey: press 'R' to run the terminal sample when the hero is in view.
 document.addEventListener('keydown', (e) => {
-  if (e.key.toLowerCase() === 'r' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+  const isTyping = document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA' || document.activeElement?.isContentEditable;
+  const heroInView = document.querySelector('.hero')?.getBoundingClientRect().top < window.innerHeight;
+
+  if (e.key.toLowerCase() === 'r' && !isTyping && !e.ctrlKey && !e.metaKey && !e.altKey && heroInView) {
     if (demoRun && !demoRun.disabled) {
       e.preventDefault();
       demoRun.click();
