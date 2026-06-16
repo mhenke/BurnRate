@@ -130,6 +130,7 @@ if (demoRun && demoOutput) {
     demoRun.disabled = true;
     demoRun.style.opacity = '0.5';
     demoRun.style.cursor = 'not-allowed';
+    demoOutput.removeAttribute('aria-live');
 
     sampleIndex = (sampleIndex + 1) % samples.length;
     const fullText = samples[sampleIndex];
@@ -142,7 +143,6 @@ if (demoRun && demoOutput) {
       if (currentLine < lines.length) {
         const line = lines[currentLine];
         if (currentLine === 0) {
-          // The command itself: type it out character by character
           let charIndex = 0;
           const interval = window.setInterval(() => {
             if (charIndex < line.length) {
@@ -152,11 +152,10 @@ if (demoRun && demoOutput) {
               window.clearInterval(interval);
               demoOutput.textContent += '\n';
               currentLine++;
-              window.setTimeout(printNextLine, 300); // pause after command
+              window.setTimeout(printNextLine, 300);
             }
           }, prefersReducedMotion ? 1 : 40);
         } else {
-          // Output lines: render them line by line with a small delay
           demoOutput.textContent += line + '\n';
           currentLine++;
           window.setTimeout(printNextLine, prefersReducedMotion ? 1 : 200);
@@ -166,6 +165,8 @@ if (demoRun && demoOutput) {
         demoRun.disabled = false;
         demoRun.style.opacity = '';
         demoRun.style.cursor = '';
+        demoOutput.setAttribute('aria-live', 'polite');
+        demoOutput.setAttribute('aria-atomic', 'true');
       }
     }
 
