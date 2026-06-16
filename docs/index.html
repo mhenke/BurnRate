@@ -3,9 +3,9 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="BurnRate ingests GitHub Copilot usage reports, stores raw payloads for audit history, and produces burn forecasts." />
+    <meta name="description" content="BurnRate pulls daily GitHub Copilot usage reports, stores the raw payloads for audit history, and forecasts month-end burn." />
     <meta name="theme-color" content="#010102" />
-    <title>BurnRate — Know your Copilot burn before GitHub does</title>
+    <title>BurnRate | Know your Copilot burn before GitHub does</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='24' fill='%235e6ad2'/%3E%3Cpath d='M16 13h12.2c5 0 7.8 2.3 7.8 6.1 0 2.8-1.7 4.8-4.4 5.5v.2c3.1.5 5.2 2.8 5.2 6 0 4.6-3.2 7.2-8.7 7.2H16V13zm11.4 10c2.5 0 4-1.2 4-3.2 0-2.1-1.5-3.2-4-3.2H21v6.4h6.4zm.7 11.2c2.9 0 4.5-1.3 4.5-3.6 0-2.3-1.7-3.6-4.7-3.6H21v7.2h7.1z' fill='white'/%3E%3C/svg%3E" />
     <link rel="preconnect" href="https://github.com" />
     <link rel="stylesheet" href="./styles.css" />
@@ -41,7 +41,7 @@
           <div class="hero-copy">
             <h1>Know your Copilot burn before GitHub does.</h1>
             <p class="lede">
-              BurnRate ingests Copilot usage reports, stores the raw JSON for audit history, and turns daily data into forecasts and budget alerts. Observe only. No budget writes.
+              BurnRate pulls your daily Copilot usage from GitHub, keeps the raw JSON for audit history, and forecasts where your budget will land at month end. It watches. It does not enforce.
             </p>
             <div class="button-row">
               <a class="button button-primary" href="#quick-start">Quick start</a>
@@ -49,9 +49,9 @@
             </div>
 
             <ul class="hero-points" aria-label="Highlights">
-              <li>Raw payloads stored before parsing</li>
-              <li>PostgreSQL in production, SQLite locally</li>
-              <li>Interact via Copilot Agent Skills</li>
+              <li>Raw payloads are stored before anything is parsed</li>
+              <li>Runs on PostgreSQL in production or SQLite locally</li>
+              <li>Ask questions through Copilot Agent Skills</li>
             </ul>
           </div>
 
@@ -75,7 +75,7 @@
           <div class="section-heading">
             <h2>For engineers watching Copilot spend.</h2>
             <p>
-              Shows the reports, the forecast, and the audit trail. No marketing template.
+              Reports, forecasts, and audit history. Nothing more.
             </p>
           </div>
 
@@ -83,34 +83,34 @@
             <article class="panel feature-card feature-card-wide">
               <div class="feature-card-copy">
                 <h3>Raw-first storage</h3>
-                <p>Stores the source payload before parsing. Schema changes do not erase history.</p>
+                <p>Keep the source payload before parsing. If the schema changes, your history stays intact.</p>
               </div>
               <ul class="feature-notes" aria-label="Raw-first storage highlights">
-                <li>Raw JSON preserved intact</li>
-                <li>Parsing stays separate from history</li>
+                <li>Raw JSON is kept exactly as GitHub sent it</li>
+                <li>Parsing happens separately from storage</li>
               </ul>
             </article>
 
             <article class="panel feature-card feature-card-wide">
               <div class="feature-card-copy">
                 <h3>Capabilities</h3>
-                <p>The core jobs BurnRate performs on your local data.</p>
+                <p>The core jobs BurnRate does with your local data.</p>
               </div>
               <ul class="feature-notes" aria-label="BurnRate capabilities">
-                <li><strong>Forecasts</strong> — burn projections and month-end risk from actual usage</li>
-                <li><strong>Budget alerts</strong> — thresholds and notifications with no GitHub budget writes</li>
-                <li><strong>Dual databases</strong> — PostgreSQL in production, SQLite locally, selected from <code>DATABASE_URL</code></li>
+                <li><strong>Forecasts</strong>: project month-end burn from actual usage</li>
+                <li><strong>Budget alerts</strong>: get notified before you hit limits, without writing to GitHub</li>
+                <li><strong>Dual databases</strong>: PostgreSQL in production, SQLite locally, chosen from <code>DATABASE_URL</code></li>
               </ul>
             </article>
 
             <article class="panel feature-card feature-card-wide">
               <div class="feature-card-copy">
                 <h3>Copilot Agent Skills</h3>
-                <p>Trigger forecasts, user classifications, and budget sync checks from natural language in your chat interface.</p>
+                <p>Run forecasts, classify users, or check budget sync from chat using plain language.</p>
               </div>
               <ul class="feature-notes" aria-label="Copilot Agent Skills features">
-                <li>On-demand chat commands</li>
-                <li>Triggers CLI scripts</li>
+                <li>Chat commands on demand</li>
+                <li>They call the same CLI scripts you use</li>
               </ul>
             </article>
           </div>
@@ -122,7 +122,7 @@
         <div class="container section-shell">
           <div class="section-heading">
             <h2>Install, configure, run.</h2>
-            <p>Same commands the CLI expects. Works with Postgres or SQLite.</p>
+            <p>These are the same commands the CLI uses. Pick Postgres or SQLite.</p>
           </div>
 
           <div class="content-grid">
@@ -170,7 +170,7 @@ $ npm run forecast</code></pre>
         <div class="container section-shell">
           <div class="section-heading">
             <h2>From GitHub API to forecast.</h2>
-            <p>Raw history first, then parsing and aggregation in separate steps.</p>
+            <p>History is stored raw, then parsed and aggregated in separate steps.</p>
           </div>
 
           <div class="panel architecture-panel">
@@ -189,7 +189,7 @@ $ npm run forecast</code></pre>
         <div class="container section-shell">
           <div class="section-heading">
             <h2>Few env vars, one config file.</h2>
-            <p>Matches the real runtime config so docs and code agree.</p>
+            <p>The same settings the runtime actually reads.</p>
           </div>
 
           <div class="content-grid content-grid-wide">
@@ -229,7 +229,7 @@ $ npm run forecast</code></pre>
                 <div>
                   <h3>Observe-only, local-first security</h3>
                   <p>
-                    BurnRate is designed with zero-trust in mind. Your <code>GITHUB_TOKEN</code> and Copilot usage data are processed <strong>locally within your own environment</strong> and stored in your self-hosted database. BurnRate never transmits your tokens or raw payload logs to any external server, and it performs no write operations back to GitHub.
+                    Your <code>GITHUB_TOKEN</code> and Copilot usage data stay inside your environment. They go to your self-hosted database, not to us. BurnRate does not send tokens or raw logs anywhere else, and it never writes back to GitHub.
                   </p>
                 </div>
               </div>
@@ -241,7 +241,7 @@ $ npm run forecast</code></pre>
       <section class="section" id="commands">
         <div class="container section-shell">
           <div class="section-heading">
-            <h2>The CLI and chat surfaces stay small.</h2>
+            <h2>Small CLI, small chat surface.</h2>
           </div>
 
           <div class="panel prose-card">
@@ -258,7 +258,7 @@ $ npm run forecast</code></pre>
                 <tr><td><code>npm run forecast</code></td><td><code>@burnrate /forecast</code></td><td>Generate burn forecasts from stored data</td></tr>
                 <tr><td><code>npm run classify</code></td><td><code>@burnrate /classify</code></td><td>Classify users by consumption/value tiers</td></tr>
                 <tr><td><code>npm run budget-sync</code></td><td><code>@burnrate /budget-sync</code></td><td>Sync budget limits and send alerts</td></tr>
-                <tr><td><code>npm test</code></td><td>—</td><td>Run the test suite</td></tr>
+                <tr><td><code>npm test</code></td><td>None</td><td>Run the test suite</td></tr>
               </tbody>
             </table>
           </div>

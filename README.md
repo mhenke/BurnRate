@@ -1,6 +1,6 @@
 # BurnRate
 
-> Observe-only GitHub Copilot budget monitoring. Daily ingestion, raw payload storage, burn forecasts, and budget alerts. No enforcement or automation.
+> Observe-only GitHub Copilot budget monitoring. Pulls daily usage, stores the raw payloads, forecasts burn, and sends alerts. It does not enforce limits or automate anything.
 
 **Site:** https://mhenke.github.io/BurnRate/
 
@@ -13,19 +13,11 @@
 
 ## The gap
 
-GitHub ships enforcement controls for Copilot billing: enterprise budgets, cost-center budgets, user-level hard caps, spending limits, and static alerts at 75/90/100 percent. What it does not ship is observability, forecasting, attribution, or automation around Copilot AI Credit consumption.
+GitHub gives you enforcement controls for Copilot billing: enterprise budgets, cost-center budgets, user-level hard caps, spending limits, and static alerts at 75/90/100 percent. It does not give you much observability, forecasting, attribution, or automation around Copilot AI Credit consumption.
 
-An example: GitHub's included-usage alerts cover Actions, Packages, Codespaces, and LFS. Copilot AI Credits are not in that list. If you monitor AI spend, you get no "90% of included usage consumed" alert for your Copilot pool.
+For example, GitHub's included-usage alerts cover Actions, Packages, Codespaces, and LFS. Copilot AI Credits are not in that list. If you want a "90% of included usage consumed" alert for your Copilot pool, you will not get it from GitHub.
 
-BurnRate fills that gap:
-
-- Ingests Copilot usage reports from the GitHub API every day
-- Stores raw payloads so schema changes do not erase history
-- Produces forecasts from actual usage patterns
-- Alerts when budgets approach limits (Phase 3)
-- Pushes to Slack and GitHub Issues (Phase 3)
-- Supports interactive chat queries via Copilot Agent Skills
-- Writes nothing to GitHub. Monitoring, not enforcement.
+BurnRate fills that gap. Every day it pulls your Copilot usage from the GitHub API and stores the raw payloads, so a schema change does not erase history. It forecasts month-end burn from actual usage and alerts when budgets approach limits. You can also ask it questions through Copilot Agent Skills. It writes nothing to GitHub. It just watches.
 
 ## Quick start
 
@@ -108,11 +100,11 @@ Skills live in [skills/](file:///home/mhenke/Projects/BurnRate/skills) and are d
 
 ### Key design decisions
 
-1. **Raw-first storage.** JSON payloads are stored before parsing. Schema changes do not corrupt historical data.
+1. **Raw-first storage.** JSON payloads are stored before parsing, so schema changes do not corrupt historical data.
 
-2. **Dual database support.** PostgreSQL for production, SQLite for local dev. Queries use Drizzle ORM with `isSqlite` branching where needed.
+2. **Dual database support.** PostgreSQL for production, SQLite for local dev. Queries branch on `isSqlite` where Drizzle behavior differs.
 
-3. **Modular ETL.** API calls in `src/github/`, parsing in `src/etl/`, database writes in `src/db/`. Strict separation.
+3. **Modular ETL.** API calls live in `src/github/`, parsing in `src/etl/`, and database writes in `src/db/`.
 
 4. **Observe-only.** Phases 1-3 read from GitHub but never write budget limits or enforcement rules.
 
@@ -203,12 +195,7 @@ Full schema definitions live in `src/db/schema.ts`.
 
 ## Security
 
-- No hardcoded secrets. All credentials via environment variables or dotenv.
-- Parameterized queries. Drizzle ORM prevents SQL injection by default.
-- Token scoping. GitHub PAT requires `manage_billing:copilot` plus `read:org` (org) or `read:enterprise` (enterprise). No write permissions needed for observe-only phases.
-- Audit trail. Raw payloads are preserved for compliance and debugging.
-- SSRF prevention. `fetchSignedUrl` validates that targets are HTTPS and whitelisted to GitHub API and S3 CDN domains.
-- Config injection protection. YAML parsing happens before env var expansion, so payloads cannot inject config keys.
+Credentials come from environment variables or dotenv, never from code. Drizzle ORM uses parameterized queries by default, so SQL injection is not a concern. The GitHub PAT only needs `manage_billing:copilot` plus `read:org` (org) or `read:enterprise` (enterprise). No write permissions are needed for observe-only phases. Raw payloads are preserved for audit and debugging. `fetchSignedUrl` only accepts HTTPS URLs on the GitHub API and S3 CDN domains. YAML parsing runs before env var expansion, so payloads cannot inject config keys.
 
 ## Troubleshooting
 
