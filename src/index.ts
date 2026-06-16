@@ -137,6 +137,7 @@ export async function main(argv: string[]): Promise<void> {
 
     const cfg = getConfig();
     const db = initDb(cfg.postgres.url);
+    await runMigrations(db);
     const gh = createGitHubClient(cfg.github.token, cfg.github.enterprise, cfg.github.org);
 
     const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL;

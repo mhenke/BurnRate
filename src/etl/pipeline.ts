@@ -52,6 +52,11 @@ async function storeRawReport(ctx: PipelineCtx, reportType: string, sourceUrl: s
   ctx.result.rawStored++;
 }
 
+function toTimestamp(db: DbClient, value: string | null | undefined): Date | string | null {
+  if (!value) return null;
+  return db.isSqlite ? value : new Date(value);
+}
+
 async function upsertUsers(ctx: PipelineCtx, userRows: Array<{
   githubLogin: string; enterprise: string; org: string;
   displayName?: string | null; email?: string | null; team?: string | null;
@@ -60,7 +65,12 @@ async function upsertUsers(ctx: PipelineCtx, userRows: Array<{
 }>) {
   if (userRows.length === 0) return;
   const t = dialectTable(ctx.db, usersPg, usersSq);
-  await ctx.r.insert(t).values(userRows)
+  const values = userRows.map(row => ({
+    ...row,
+    seatCreatedAt: toTimestamp(ctx.db, row.seatCreatedAt),
+    lastActivityAt: toTimestamp(ctx.db, row.lastActivityAt),
+  }));
+  await ctx.r.insert(t).values(values)
     .onConflictDoUpdate({
       target: t.githubLogin,
       set: {
@@ -83,7 +93,12 @@ async function upsertSeatUsers(ctx: PipelineCtx, seatRows: Array<{
 }>) {
   if (seatRows.length === 0) return;
   const t = dialectTable(ctx.db, usersPg, usersSq);
-  await ctx.r.insert(t).values(seatRows)
+  const values = seatRows.map(row => ({
+    ...row,
+    seatCreatedAt: toTimestamp(ctx.db, row.seatCreatedAt),
+    lastActivityAt: toTimestamp(ctx.db, row.lastActivityAt),
+  }));
+  await ctx.r.insert(t).values(values)
     .onConflictDoUpdate({
       target: t.githubLogin,
       set: {
