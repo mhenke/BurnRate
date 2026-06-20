@@ -121,6 +121,21 @@ export const notificationLogPg = pgTable('notification_log', {
   pgUnique('notification_log_unique').on(t.snapshotDate, t.channel, t.notificationType)
 ]);
 
+export const ulbAuditPg = pgTable('ulb_audit', {
+  id: pgBigserial('id', { mode: 'bigint' }).primaryKey(),
+  effectiveDate: pgDate('effective_date').notNull(),
+  githubLogin: pgText('github_login').notNull(),
+  ulbUsd: pgNumeric('ulb_usd', { precision: 12, scale: 2 }).notNull(),
+  ulbCredits: pgNumeric('ulb_credits', { precision: 12, scale: 2 }).notNull(),
+  tierAtTime: pgText('tier_at_time').notNull(),
+  baselineCredits: pgNumeric('baseline_credits', { precision: 12, scale: 2 }).notNull(),
+  reason: pgText('reason').notNull(),
+  createdAt: pgTimestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  pgUnique('ulb_audit_date_login_pk').on(t.effectiveDate, t.githubLogin),
+  pgIndex('ulb_audit_login_date_idx').on(t.githubLogin, t.effectiveDate),
+]);
+
 // === SQLite Schema ===
 
 export const rawReportsSq = sqliteTable('raw_reports', {
@@ -235,4 +250,19 @@ export const notificationLogSq = sqliteTable('notification_log', {
   createdAt: sqText('created_at').notNull().default('CURRENT_TIMESTAMP'),
 }, (t) => [
   sqUnique('notification_log_unique').on(t.snapshotDate, t.channel, t.notificationType)
+]);
+
+export const ulbAuditSq = sqliteTable('ulb_audit', {
+  id: sqInteger('id').primaryKey({ autoIncrement: true }),
+  effectiveDate: sqText('effective_date').notNull(),
+  githubLogin: sqText('github_login').notNull(),
+  ulbUsd: sqNumeric('ulb_usd').notNull(),
+  ulbCredits: sqNumeric('ulb_credits').notNull(),
+  tierAtTime: sqText('tier_at_time').notNull(),
+  baselineCredits: sqNumeric('baseline_credits').notNull(),
+  reason: sqText('reason').notNull(),
+  createdAt: sqText('created_at').notNull().default('CURRENT_TIMESTAMP'),
+}, (t) => [
+  sqUnique('ulb_audit_date_login_pk').on(t.effectiveDate, t.githubLogin),
+  sqIndex('ulb_audit_login_date_sq_idx').on(t.githubLogin, t.effectiveDate),
 ]);

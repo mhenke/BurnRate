@@ -1,5 +1,5 @@
 # AGENTS.md — BurnRate
-> Last updated: 2026-06-13T07:18:00-05:00
+> Last updated: 2026-06-18T00:00:00-05:00
 > This file defines the rules, patterns, and guardrails for all AI agents working on this project.
 
 ## How to Read This File
@@ -18,11 +18,14 @@ Node.js + TypeScript + Drizzle ORM (PostgreSQL + SQLite) + Vitest + GitHub Actio
 - Always store the raw JSON reports directly in the `raw_reports` table BEFORE parsing. This protects history from schema drift.
 - Use database transactions (via the Drizzle client) for multi-statement inserts or updates.
 - Keep the ETL processing modular: API calls in `src/github/`, database writes in `src/db/`, and parsing in `src/etl/`.
+- The enforce engine (`src/enforce/engine.ts`) is a pure math module — no DB, no side effects. All DB reads/writes happen in the runner (`src/enforce/runner.ts`).
+- Use dialect-aware transactions for SQLite (synchronous) vs PostgreSQL (async). See `src/classify/runner.ts` for the pattern.
 
 ## Testing Requirements
 - Unit tests must be written for all parsers and mathematical forecasting calculations.
 - Test coverage for new code in these areas must meet or exceed 80%.
 - Use `vitest` for running tests, and mock all API calls.
+- Enforce engine tests must cover: projection, cut distribution, restore, hard/soft modes, day-1 dampening, and edge cases.
 
 ## Security Rules (All Agents)
 - Never commit actual environment secrets or tokens to the repository.

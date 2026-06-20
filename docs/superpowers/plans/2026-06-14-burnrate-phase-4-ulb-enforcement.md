@@ -16,21 +16,21 @@
 
 | File | Create/Modify | Purpose |
 |------|--------------|---------|
-| `src/enforce/types.ts` | Create | `BudgetPolicy`, `TierWeights`, `UserState`, `EnforceResult` types |
+| `src/enforce/types.ts` | Create | `BudgetPolicy`, `TierWeights`, `UserState`, `EnforceResult` types (`ConsumptionTier` defined locally — avoids circular dep) |
 | `src/config.ts` | Modify | Extend `BurnrateConfig` with optional `budget` section |
 | `src/db/schema.ts` | Modify | Add `ulbAuditPg` / `ulbAuditSq` tables |
 | `src/db/migrations/pg/0002_ulb_audit.sql` | Create | PostgreSQL migration |
 | `src/db/migrations/sqlite/0002_ulb_audit.sql` | Create | SQLite migration |
 | `src/db/migrations/pg/meta/_journal.json` | Modify | Add journal entry |
 | `src/db/migrations/sqlite/meta/_journal.json` | Modify | Add journal entry |
-| `src/db/queries.ts` | Modify | Add `getLatestUlbForUser`, `insertUlbAudit` queries |
-| `src/enforce/engine.ts` | Create | Projection, cut distribution, restore math |
-| `src/enforce/runner.ts` | Create | Orchestrator: read DB, run engine, write audit, notify |
+| `src/db/queries.ts` | Modify | Add `getLatestUlbForAllUsers`, `upsertUlbAudit` queries (batched) |
+| `src/enforce/engine.ts` | Create | Projection, cut distribution, restore math (with day-1 dampening) |
+| `src/enforce/runner.ts` | Create | Orchestrator: read DB, run engine, write audit (with ETL staleness check, UTC) |
 | `src/cli/args.ts` | Modify | Add `parseEnforceArgs` |
 | `src/index.ts` | Modify | Wire `enforce` command |
 | `config/burnrate.sample.yml` | Modify | Add `budget` section |
 | `.github/workflows/daily-enforce.yml` | Create | Daily cron workflow |
-| `tests/enforce/types.test.ts` | Create | Config loading and defaults |
+| `tests/enforce/policy.test.ts` | Create | Config loading and defaults |
 | `tests/enforce/engine.test.ts` | Create | Unit tests for projection, cuts, restore |
 | `tests/enforce/runner.test.ts` | Create | Integration tests with in-memory SQLite |
 
@@ -41,7 +41,7 @@
 **Files:**
 - Create: `src/enforce/types.ts`
 
-- [ ] **Step 1: Create types file**
+- [x] **Step 1: Create types file** — Council review deviations: `ConsumptionTier` defined locally (avoids circular dep), `warningHours` removed (YAGNI #9), `floorBasis` removed (YAGNI #12), `report`/`force` removed from EnforceOptions (clean interface)
 
 ```typescript
 import type { ConsumptionTier } from '../classify/engine.js';
@@ -117,12 +117,7 @@ export type EnforceOptions = {
 };
 ```
 
-- [ ] **Step 2: Commit**
-
-```bash
-git add src/enforce/types.ts
-git commit -m "feat(enforce): add budget policy and enforcement types"
-```
+- [x] **Step 2: Commit** — Committed as part of fix-1 batch
 
 ---
 
@@ -131,7 +126,7 @@ git commit -m "feat(enforce): add budget policy and enforcement types"
 **Files:**
 - Modify: `src/config.ts:1-26`
 
-- [ ] **Step 1: Add import and extend config type**
+- [x] **Step 1: Add import and extend config type** — Council review: `floorBasis` and `warningHours` removed from BudgetPolicy
 
 ```typescript
 import type { BudgetPolicy } from './enforce/types.js';
@@ -161,7 +156,7 @@ Update `loadConfig` return to include budget:
   };
 ```
 
-- [ ] **Step 2: Add resolveBudgetPolicy helper**
+- [x] **Step 2: Add resolveBudgetPolicy helper** — Council review: `floorBasis` and `warningHours` removed from resolver
 
 Add after `resolveThresholds`:
 
@@ -186,7 +181,7 @@ export function resolveBudgetPolicy(
 }
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/config.ts
@@ -200,7 +195,7 @@ git commit -m "feat(config): add BudgetPolicy to BurnrateConfig"
 **Files:**
 - Modify: `src/db/schema.ts:238` (append after notificationLogSq)
 
-- [ ] **Step 1: Add PG ULB audit schema**
+- [x] **Step 1: Add PG ULB audit schema** — Council review: `githubBudgetId` column removed (YAGNI #12)
 
 Append after `notificationLogPg` closing:
 
@@ -242,7 +237,7 @@ export const ulbAuditSq = sqliteTable('ulb_audit', {
 ]);
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add src/db/schema.ts
@@ -259,7 +254,7 @@ git commit -m "feat(db): add ulb_audit table schema for PG and SQLite"
 - Modify: `src/db/migrations/pg/meta/_journal.json`
 - Modify: `src/db/migrations/sqlite/meta/_journal.json`
 
-- [ ] **Step 1: Create PG migration SQL**
+- [x] **Step 1: Create PG migration SQL** — Council review: `github_budget_id` removed (YAGNI #12)
 
 `src/db/migrations/pg/0002_ulb_audit.sql`:
 
@@ -282,7 +277,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS "ulb_audit_date_login_idx" ON "ulb_audit" ("ef
 CREATE INDEX IF NOT EXISTS "ulb_audit_login_date_idx" ON "ulb_audit" ("github_login", "effective_date");
 ```
 
-- [ ] **Step 2: Create SQLite migration SQL**
+- [x] **Step 2: Create SQLite migration SQL** — Council review: `github_budget_id` removed, `NUMERIC` instead of `REAL` for consistency
 
 `src/db/migrations/sqlite/0002_ulb_audit.sql`:
 
@@ -305,7 +300,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS "ulb_audit_date_login_sq_idx" ON "ulb_audit" (
 CREATE INDEX IF NOT EXISTS "ulb_audit_login_date_sq_idx" ON "ulb_audit" ("github_login", "effective_date");
 ```
 
-- [ ] **Step 3: Update PG journal**
+- [x] **Step 3: Update PG journal** — Committed as part of fix-3 batch
 
 Read `src/db/migrations/pg/meta/_journal.json` and append to `entries` array:
 
@@ -319,11 +314,11 @@ Read `src/db/migrations/pg/meta/_journal.json` and append to `entries` array:
     }
 ```
 
-- [ ] **Step 4: Update SQLite journal**
+- [x] **Step 4: Update SQLite journal** — Committed as part of fix-3 batch
 
 Same entry appended to `src/db/migrations/sqlite/meta/_journal.json` entries.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/db/migrations/
@@ -337,7 +332,7 @@ git commit -m "feat(db): add ulb_audit migration for PG and SQLite"
 **Files:**
 - Modify: `src/db/queries.ts`
 
-- [ ] **Step 1: Add import for ulbAudit tables**
+- [x] **Step 1: Add import for ulbAudit tables** — Council review: batch upsert instead of individual inserts (#6)
 
 Add to existing schema imports:
 
@@ -345,7 +340,7 @@ Add to existing schema imports:
   ulbAuditPg, ulbAuditSq,
 ```
 
-- [ ] **Step 2: Add getLatestUlbForUser query**
+- [x] **Step 2: Add getLatestUlbForUser query** — Council review: scalability note added (#5), `githubBudgetId` removed from UlbAuditInsert
 
 ```typescript
 export type UlbAuditRow = {
@@ -392,7 +387,7 @@ export async function getLatestUlbForAllUsers(db: DbClient): Promise<Map<string,
 }
 ```
 
-- [ ] **Step 3: Add insertUlbAudit query**
+- [x] **Step 3: Add insertUlbAudit query** — Council review: batched single INSERT with ON CONFLICT (#6), `githubBudgetId` removed
 
 ```typescript
 export type UlbAuditInsert = {
@@ -445,7 +440,7 @@ export async function upsertUlbAudit(db: DbClient, entries: UlbAuditInsert[]): P
 }
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/db/queries.ts
@@ -459,7 +454,7 @@ git commit -m "feat(db): add ulb audit queries"
 **Files:**
 - Create: `src/enforce/engine.ts`
 
-- [ ] **Step 1: Create the engine**
+- [x] **Step 1: Create the engine** — Council review deviations: `ConsumptionTier` defined locally (avoids circular dep), day-1 dampening added (MIN_DAYS_FOR_CUTS=3, #8), docstring clarified for below-floor cuts (#3), `Math.round` used throughout (#10)
 
 ```typescript
 import type { BudgetPolicy, TierWeights, UserState, UserCut, EnforceResult } from './types.js';
@@ -714,7 +709,7 @@ function computeRestore(currentUlb: number, targetUlb: number, restoreRate: numb
 }
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add src/enforce/engine.ts
@@ -728,7 +723,7 @@ git commit -m "feat(enforce): add projection and cut engine"
 **Files:**
 - Create: `src/enforce/runner.ts`
 
-- [ ] **Step 1: Create the runner**
+- [x] **Step 1: Create the runner** — Council review deviations: ETL staleness validation added (#1), UTC timezone fix (#2), `Math.round` instead of `Math.ceil` for USD (#10), `initial_allocation` reason for new users (#7), `force`/`report` removed from options, dialect-aware SQLite sync transactions (#2 bug fix), `snapshotDate` added to pool query (#1 bug fix)
 
 ```typescript
 import { today } from '../constants.js';
@@ -839,7 +834,7 @@ export async function runEnforce(
 }
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add src/enforce/runner.ts
@@ -853,7 +848,7 @@ git commit -m "feat(enforce): add enforce runner orchestrator"
 **Files:**
 - Modify: `src/cli/args.ts`
 
-- [ ] **Step 1: Add parseEnforceArgs**
+- [x] **Step 1: Add parseEnforceArgs** — Council review: `--force` flag removed (YAGNI #12)
 
 Append at end of file:
 
@@ -877,7 +872,7 @@ export function parseEnforceArgs(argv: string[]): { report: boolean; dryRun: boo
 }
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add src/cli/args.ts
@@ -891,7 +886,7 @@ git commit -m "feat(cli): add enforce arg parsing"
 **Files:**
 - Modify: `src/index.ts`
 
-- [ ] **Step 1: Add imports**
+- [x] **Step 1: Add imports** — Council review: `force` option removed from runEnforce call
 
 ```typescript
 import { resolveBudgetPolicy } from './config.js';
@@ -899,7 +894,7 @@ import { runEnforce } from './enforce/runner.js';
 import { parseEnforceArgs } from './cli/args.js';
 ```
 
-- [ ] **Step 2: Add enforce command handler**
+- [x] **Step 2: Add enforce command handler** — Council review: `force` and `report` options removed from EnforceOptions
 
 Before the final `throw new Error(...)` line, add:
 
@@ -954,7 +949,7 @@ Before the final `throw new Error(...)` line, add:
   }
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/index.ts
@@ -968,7 +963,7 @@ git commit -m "feat(cli): wire enforce command"
 **Files:**
 - Modify: `config/burnrate.sample.yml`
 
-- [ ] **Step 1: Add budget section**
+- [x] **Step 1: Add budget section** — Council review: `warningHours` and `floorBasis` removed from sample (YAGNI #9, #12)
 
 Append at end of file:
 
@@ -990,7 +985,7 @@ budget:
     low: 0.75               # light users get 75% — they won't notice
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add config/burnrate.sample.yml
@@ -1004,7 +999,7 @@ git commit -m "feat(config): add budget enforcement section to sample config"
 **Files:**
 - Create: `.github/workflows/daily-enforce.yml`
 
-- [ ] **Step 1: Create workflow file**
+- [x] **Step 1: Create workflow file** — No deviations
 
 ```yaml
 name: daily-enforce
@@ -1028,7 +1023,7 @@ jobs:
           BURNRATE_CONFIG: config/burnrate.yml
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add .github/workflows/daily-enforce.yml
@@ -1042,7 +1037,7 @@ git commit -m "feat(ci): add daily enforce cron workflow"
 **Files:**
 - Create: `tests/enforce/engine.test.ts`
 
-- [ ] **Step 1: Write tests**
+- [x] **Step 1: Write tests** — Council review: added day-1 dampening test (#8), single-user edge case (#14), rounding boundary test (#14), removed some tests that conflicted with council fixes
 
 ```typescript
 import { strict as assert } from 'node:assert';
@@ -1463,13 +1458,13 @@ describe('enforce engine', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests and verify they pass**
+- [x] **Step 2: Run tests and verify they pass**
 
 ```bash
 npx vitest run tests/enforce/engine.test.ts
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add tests/enforce/engine.test.ts
@@ -1483,7 +1478,7 @@ git commit -m "test(enforce): add engine unit tests"
 **Files:**
 - Create: `tests/enforce/policy.test.ts`
 
-- [ ] **Step 1: Write tests**
+- [x] **Step 1: Write tests** — Council review: `warningHours` assertion removed (YAGNI #9), test matches actual BudgetPolicy shape
 
 ```typescript
 import { strict as assert } from 'node:assert';
@@ -1530,13 +1525,13 @@ describe('budget policy config', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests**
+- [x] **Step 2: Run tests**
 
 ```bash
 npx vitest run tests/enforce/policy.test.ts
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add tests/enforce/policy.test.ts
@@ -1550,7 +1545,7 @@ git commit -m "test(enforce): add policy config tests"
 **Files:**
 - Create: `tests/enforce/runner.test.ts`
 
-- [ ] **Step 1: Write tests**
+- [x] **Step 1: Write tests** — Council review: added stale data test (#1), removed `force`/`report` options from test calls, added null-tier test (#14), added `modelBreakdown`/`ideBreakdown`/`languageBreakdown` fields to test inserts
 
 ```typescript
 import { strict as assert } from 'node:assert';
@@ -1722,13 +1717,13 @@ describe('enforce runner integration', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests**
+- [x] **Step 2: Run tests**
 
 ```bash
 npx vitest run tests/enforce/runner.test.ts
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add tests/enforce/runner.test.ts
@@ -1741,12 +1736,13 @@ git commit -m "test(enforce): add runner integration tests"
 
 1. **Spec coverage:** Projection, gap, bottom-up headroom cuts (low first, protects power users), floor enforcement, soft/hard modes, restore, tier weights, credits-to-USD, CLI command, daily cron — all covered.
 2. **Placeholder scan:** No TBDs or TODOs. All code is complete.
-3. **Type consistency:** `ConsumptionTier` imported from `src/classify/engine.js`. `BudgetPolicy` defined in types.ts and used in config.ts, engine.ts, runner.ts. `UserState`, `UserCut`, `EnforceResult` defined once and consumed consistently.
+3. **Type consistency:** `ConsumptionTier` defined in `src/enforce/types.ts` (avoids circular dep with classify). `BudgetPolicy` defined in types.ts and used in config.ts, engine.ts, runner.ts. `UserState`, `UserCut`, `EnforceResult` defined once and consumed consistently.
+
+**Council review applied (15 findings addressed):**
+- ETL staleness validation, UTC timezone fix, below-floor docstring clarification, day-1 dampening, batch upsert, initial_allocation reason, Math.round for USD, scalability note, YAGNI removals (warningHours, floorBasis, githubBudgetId, force), ConsumptionTier local definition, edge-case tests.
 
 **Deferred to future work:**
-- **GitHub Budgets API client** (`src/github/budget.ts`) — needs endpoint shape verification against actual API. ULBs are calculated and stored in `ulb_audit` but not yet pushed to GitHub's Budgets API. The `githubBudgetId` field is reserved for future use. This means v1 is **observe-only**: the pipeline audits what ULBs *should be* but does not enforce them.
+- **GitHub Budgets API client** (`src/github/budget.ts`) — needs endpoint shape verification against actual API. ULBs are calculated and stored in `ulb_audit` but not yet pushed to GitHub's Budgets API. This means v1 is **observe-only**: the pipeline audits what ULBs *should be* but does not enforce them via the API.
 - **Uncloseable-gap notifications** — `uncloseableGap > 0` is computed (soft mode only) but no alert is dispatched. Future work should wire this into the existing notification system (`src/notifications/`).
-- **`warningHours` enforcement** — Config field exists in `BudgetPolicy` but is not yet read or acted upon by the runner. Intended for hard-mode only: delays ULB application by N hours with a warning to affected users.
-- **Hard-mode below-floor notification** — Below-floor cuts guarantee pool containment, but users hit with below-floor cuts should receive a warning. Integrate with `warningHours` and notification system in a future phase.
-- **`getLatestUlbForAllUsers` optimization** — Uses a 60-day window scan for simplicity. For orgs with 1000+ users, consider a `latest_ulb` denormalized column on the `users` table.
+- **`getLatestUlbForAllUsers` optimization** — Uses a 60-day window scan for simplicity. For orgs with 1000+ users, consider a window function or `latest_ulb` denormalized column on the `users` table.
 - **Model-tier monitoring (Phase 5)** — Track usage by model tier (low/middle/high cost models) and help users optimize their model-level spending patterns.

@@ -49,3 +49,16 @@ notifications:
     #   repo: burnrate-alerts
     #   token: ${GITHUB_TOKEN}
     #   minLevel: warning
+
+# Budget enforcement policy (Phase 4 ULB enforcement)
+# Controls how BurnRate adjusts user-level budgets to prevent pool exhaustion.
+budget:
+  mode: hard              # hard (guarantee pool containment) | soft (minimize disruption, tolerate overage)
+  bufferPct: 0.05          # target ending month with 5% pool remaining
+  maxOveragePct: 0.10      # soft mode only: accept up to 10% over pool before cutting (0 = no tolerance)
+  restoreRate: 0.5          # restore 50% of cuts per day when projection clears
+  tierWeights:              # multiplier on 30d_avg baseline for initial allocation
+    extreme: 1.5            # power users get 150% of historical need
+    high: 1.15              # above-average users get 115%
+    medium: 1.0             # baseline (no adjustment)
+    low: 0.75               # light users get 75% — they won't notice

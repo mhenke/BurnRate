@@ -1,6 +1,6 @@
 # BurnRate
 
-> Observe-only GitHub Copilot budget monitoring. Pulls daily usage, stores the raw payloads, forecasts burn, and sends alerts. It does not enforce limits or automate anything.
+> GitHub Copilot budget monitoring and enforcement. Pulls daily usage, stores raw payloads, forecasts burn, classifies users, syncs budgets, and enforces per-user level budgets (ULBs) to prevent pool exhaustion.
 
 **Site:** https://mhenke.github.io/BurnRate/
 
@@ -52,6 +52,7 @@ To backfill a previous day: `npm run etl -- --day YYYY-MM-DD`.
 | `npm run forecast` | Generate burn forecasts from stored data |
 | `npm run classify` | Classify users by consumption and value tiers |
 | `npm run budget-sync` | Sync budget limits and send alerts |
+| `npm run enforce` | Run daily ULB enforcement (supports `--report` and `--dry-run`) |
 | `npm test` | Run the test suite |
 | `npm run build` | Compile TypeScript |
 
@@ -92,10 +93,16 @@ Skills live in [skills/](file:///home/mhenke/Projects/BurnRate/skills) and are d
 └─────────────────┘     └──────────────┘     └─────────────────┘
                                │
                                ▼
-                        ┌──────────────┐
-                        │  Forecast    │
-                        │  (src/forecast/)
-                        └──────────────┘
+                        ┌──────────────┐     ┌─────────────────┐
+                        │  Forecast    │────▶│  Classify       │
+                        │  (src/forecast/)   │  (src/classify/) │
+                        └──────────────┘     └─────────────────┘
+                               │                    │
+                               ▼                    ▼
+                        ┌──────────────┐     ┌─────────────────┐
+                        │ Budget Sync  │     │  Enforce        │
+                        │ (src/budget/)│     │  (src/enforce/) │
+                        └──────────────┘     └─────────────────┘
 ```
 
 ### Key design decisions
@@ -106,7 +113,7 @@ Skills live in [skills/](file:///home/mhenke/Projects/BurnRate/skills) and are d
 
 3. **Modular ETL.** API calls live in `src/github/`, parsing in `src/etl/`, and database writes in `src/db/`.
 
-4. **Observe-only.** Phases 1-3 read from GitHub but never write budget limits or enforcement rules.
+4. **Enforcement added in Phase 4.** The enforce engine calculates per-user budgets (ULBs) from 30-day averages and writes them to `ulb_audit`. v1 is observe-only for GitHub's Budgets API — ULBs are calculated and audited but not yet pushed to GitHub.
 
 ## Project phases
 
@@ -115,7 +122,7 @@ Skills live in [skills/](file:///home/mhenke/Projects/BurnRate/skills) and are d
 | **Phase 1** | ✅ Complete | Observe-only ETL pipeline with raw storage |
 | **Phase 2** | ✅ Complete | User classification by consumption and value tiers |
 | **Phase 3** | ✅ Complete | Budget sync and notification hub (Slack, GitHub Issues) |
-| **Phase 4** | 📋 Planned | ULB enforcement with GitHub Budgets API writes |
+| **Phase 4** | ✅ Complete | ULB enforcement with daily projection and per-user budget audits |
 
 ## Configuration
 
@@ -137,6 +144,9 @@ BUDGET_ISSUE_REPO=owner/repo
 # Optional
 DRY_RUN=true           # skip DB writes and notifications
 JSON_LOGS=true         # output structured JSON
+
+# Budget enforcement (Phase 4)
+BUDGET_MODE=hard           # hard (guarantee pool containment) | soft (tolerate overage)
 ```
 
 ### Value tier configuration
@@ -173,6 +183,7 @@ Automated workflows:
 - `daily-forecast.yml`: daily at 8 AM UTC, computes burn forecasts
 - `weekly-classify.yml`: Monday at 6 AM UTC, classifies users
 - `daily-budget-check.yml`: Monday-Friday at 9 AM UTC, syncs budgets and sends alerts
+- `daily-enforce.yml`: daily at 1 AM UTC, runs ULB enforcement and writes audit records
 
 All workflows support `workflow_dispatch` for manual triggering.
 
@@ -189,6 +200,7 @@ All workflows support `workflow_dispatch` for manual triggering.
 | `pool_snapshots` | Daily pool-level snapshots with forecasts |
 | `budget_snapshots` | Budget limit snapshots (Phase 3) |
 | `notification_log` | Notification dispatch history (Phase 3) |
+| `ulb_audit` | Per-user ULB audit trail (Phase 4) |
 | `classification_history` | User classification changes over time |
 
 Full schema definitions live in `src/db/schema.ts`.

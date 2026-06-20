@@ -55,3 +55,19 @@ export function parseEtlArgs(argv: string[]): { day: string; userSupplied: boole
     userSupplied,
   };
 }
+
+export function parseEnforceArgs(argv: string[]): { report: boolean; dryRun: boolean } {
+  let report = false;
+  let dryRun = false;
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+
+    if (arg === '--report') { report = true; continue; }
+    if (arg === '--dry-run') { dryRun = true; continue; }
+
+    throw new Error(`Unknown enforce flag: ${arg}`);
+  }
+
+  return { report, dryRun };
+}

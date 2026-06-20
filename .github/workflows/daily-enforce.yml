@@ -1,0 +1,19 @@
+name: daily-enforce
+on:
+  schedule:
+    - cron: '0 1 * * *'
+  workflow_dispatch: {}
+jobs:
+  enforce:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npx tsx src/index.ts enforce --report
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BURNRATE_CONFIG: config/burnrate.yml

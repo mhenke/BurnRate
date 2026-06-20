@@ -8,6 +8,7 @@ import {
   poolSnapshotsPg, poolSnapshotsSq,
   budgetSnapshotsPg, budgetSnapshotsSq,
   notificationLogPg, notificationLogSq,
+  ulbAuditPg, ulbAuditSq,
 } from './schema.js';
 import { runner, dialectTable, dialectNow } from './adapter.js';
 
@@ -119,6 +120,7 @@ export async function getAllUsers(db: DbClient): Promise<UserSummaryRow[]> {
 }
 
 export type PoolSnapshotRow = {
+  snapshotDate: string;
   forecast7d: string | number | null;
   forecast30d: string | number | null;
   totalCredits: string | number | null;
@@ -137,6 +139,7 @@ export async function getLatestPoolSnapshot(db: DbClient): Promise<PoolSnapshotR
   const t = dialectTable(db, poolSnapshotsPg, poolSnapshotsSq);
   const rows = await r
     .select({
+      snapshotDate: t.snapshotDate,
       forecast7d: t.forecast7d,
       forecast30d: t.forecast30d,
       totalCredits: t.totalCredits,
@@ -268,4 +271,95 @@ export async function insertNotificationLog(db: DbClient, entry: NotificationLog
     success: db.isSqlite ? (entry.success ? 1 : 0) : entry.success,
     errorMessage: entry.errorMessage || null,
   }).onConflictDoNothing();
+}
+
+export type UlbAuditRow = {
+  githubLogin: string;
+  ulbCredits: number;
+  effectiveDate: string;
+};
+
+/**
+ * Return the most recent ULB audit entry for each user.
+ * Used by the enforce runner to find current ULBs for restore calculation.
+ *
+ * Performance note: scans `ulb_audit` with a 60-day window, then deduplicates
+ * in application code. For orgs with 1000+ users and months of history, this
+ * fetches up to 60K rows. Consider a window function
+ * (ROW_NUMBER() OVER PARTITION BY) or a denormalized `latest_ulb` column on
+ * the `users` table if this becomes a bottleneck (finding #5).
+ */
+export async function getLatestUlbForAllUsers(db: DbClient): Promise<Map<string, number>> {
+  const r = runner(db);
+  const t = dialectTable(db, ulbAuditPg, ulbAuditSq);
+
+  const sixtyDaysAgo = new Date();
+  sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+  const cutoffDate = sixtyDaysAgo.toISOString().slice(0, 10);
+
+  const rows = await r
+    .select({
+      githubLogin: t.githubLogin,
+      ulbCredits: t.ulbCredits,
+      effectiveDate: t.effectiveDate,
+    })
+    .from(t)
+    .where(gte(t.effectiveDate, cutoffDate))
+    .orderBy(desc(t.effectiveDate)) as UlbAuditRow[];
+
+  const map = new Map<string, number>();
+  for (const row of rows) {
+    if (!map.has(row.githubLogin)) {
+      map.set(row.githubLogin, Number(row.ulbCredits));
+    }
+  }
+  return map;
+}
+
+export type UlbAuditInsert = {
+  effectiveDate: string;
+  githubLogin: string;
+  ulbUsd: number;
+  ulbCredits: number;
+  tierAtTime: string;
+  baselineCredits: number;
+  reason: string;
+};
+
+/**
+ * Batch upsert ULB audit records using a single INSERT statement.
+ * Uses `ON CONFLICT (effective_date, github_login) DO UPDATE` so re-running
+ * the same day overwrites the previous entry.
+ *
+ * Batched for performance: a single statement for N users instead of N
+ * round-trips (finding #6).
+ */
+export async function upsertUlbAudit(db: DbClient, entries: UlbAuditInsert[]): Promise<void> {
+  if (entries.length === 0) return;
+  const r = runner(db);
+  const t = dialectTable(db, ulbAuditPg, ulbAuditSq);
+  const now = db.isSqlite ? new Date().toISOString() : new Date();
+
+  const rows = entries.map(e => ({
+    effectiveDate: e.effectiveDate,
+    githubLogin: e.githubLogin,
+    ulbUsd: e.ulbUsd.toString(),
+    ulbCredits: e.ulbCredits.toString(),
+    tierAtTime: e.tierAtTime,
+    baselineCredits: e.baselineCredits.toString(),
+    reason: e.reason,
+  }));
+
+  await r.insert(t).values(rows)
+    .onConflictDoUpdate({
+      target: [t.effectiveDate, t.githubLogin],
+      set: {
+        ulbUsd: sql`excluded.ulb_usd`,
+        ulbCredits: sql`excluded.ulb_credits`,
+        tierAtTime: sql`excluded.tier_at_time`,
+        baselineCredits: sql`excluded.baseline_credits`,
+        reason: sql`excluded.reason`,
+        createdAt: now,
+      },
+    });
 }

@@ -11,7 +11,9 @@ import type { NotificationProviderConfig } from './notifications/types.js';
 import { runBudgetSync } from './budget/budget_sync.js';
 import { daysAgo } from './constants.js';
 import * as queries from './db/queries.js';
-import { slurpArg, parseClassifyArgs, parseEtlArgs } from './cli/args.js';
+import { slurpArg, parseClassifyArgs, parseEtlArgs, parseEnforceArgs } from './cli/args.js';
+import { resolveBudgetPolicy } from './config.js';
+import { runEnforce } from './enforce/runner.js';
 
 config();
 
@@ -183,6 +185,53 @@ export async function main(argv: string[]): Promise<void> {
     }
 
     await closeDb();
+    return;
+  }
+
+  if (command === 'enforce') {
+    const parsed = parseEnforceArgs(argv.slice(3));
+    const cfg = getConfig();
+    const db = initDb(cfg.postgres.url);
+    await runMigrations(db);
+    const policy = resolveBudgetPolicy(cfg.budget);
+
+    try {
+      const result = await runEnforce(db, policy, {
+        reason: 'manual',
+        dryRun: parsed.dryRun,
+      });
+
+      if (parsed.report) {
+        const cutsByTier = result.changes.reduce((acc, c) => {
+          acc[c.tier] = (acc[c.tier] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+
+        console.log(JSON.stringify({
+          mode: result.mode,
+          pool_total: result.poolTotal,
+          credits_used_mtd: result.creditsUsedMtd,
+          days_elapsed: result.daysElapsed,
+          days_remaining: result.daysRemaining,
+          projected_eom: Math.round(result.projectedEom),
+          buffer_target: result.bufferTarget,
+          gap: Math.round(result.gap),
+          action: result.action,
+          users_adjusted: result.usersAdjusted,
+          uncloseable_gap: result.uncloseableGap,
+          cuts_by_tier: cutsByTier,
+          changes: result.changes,
+        }, null, 2));
+      } else {
+        console.log(`Enforce complete: ${result.action} — ${result.usersAdjusted} users adjusted${result.uncloseableGap > 0 ? `, ${Math.round(result.uncloseableGap)} credits uncloseable` : ''}`);
+      }
+
+      if (parsed.dryRun) {
+        console.log('[dry-run] No writes performed');
+      }
+    } finally {
+      await closeDb();
+    }
     return;
   }
 

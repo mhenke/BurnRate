@@ -3,6 +3,7 @@ import { parse } from 'yaml';
 import { config as dotenvConfig } from 'dotenv';
 import { expandEnv } from './env.js';
 import type { NotificationProviderConfig, NotificationsConfig } from './notifications/types.js';
+import { DEFAULT_BUDGET_POLICY, type BudgetPolicy } from './enforce/types.js';
 
 dotenvConfig();
 
@@ -23,6 +24,7 @@ export type BurnrateConfig = {
   postgres: { url: string };
   thresholds?: Partial<BurnrateThresholds>;
   notifications?: NotificationsConfig;
+  budget?: Partial<BudgetPolicy>;
 };
 
 /**
@@ -35,6 +37,27 @@ export function resolveThresholds(
     alert: { ...DEFAULT_THRESHOLDS.alert, ...thresholds.alert },
     classify: { ...DEFAULT_THRESHOLDS.classify, ...thresholds.classify },
     forecast: { ...DEFAULT_THRESHOLDS.forecast, ...thresholds.forecast },
+  };
+}
+
+/**
+ * Merge user-supplied budget config with defaults.
+ * The `floorBasis` field was removed (YAGNI) — baseline is always
+ * `dailyAvg30d * daysRemaining`. The `warningHours` field was removed
+ * (YAGNI) — implement notification delay when the feature is built.
+ */
+export function resolveBudgetPolicy(
+  budget: BurnrateConfig['budget'] = {},
+): BudgetPolicy {
+  return {
+    mode: budget.mode ?? DEFAULT_BUDGET_POLICY.mode,
+    bufferPct: budget.bufferPct ?? DEFAULT_BUDGET_POLICY.bufferPct,
+    maxOveragePct: budget.maxOveragePct ?? DEFAULT_BUDGET_POLICY.maxOveragePct,
+    restoreRate: budget.restoreRate ?? DEFAULT_BUDGET_POLICY.restoreRate,
+    tierWeights: {
+      ...DEFAULT_BUDGET_POLICY.tierWeights,
+      ...budget.tierWeights,
+    },
   };
 }
 
@@ -78,6 +101,8 @@ export function loadConfig(filePath: string): BurnrateConfig {
     github: { enterprise: enterprise ?? '', org, token },
     postgres: { url },
     thresholds: fileConfig.thresholds,
+    notifications: fileConfig.notifications,
+    budget: fileConfig.budget,
   };
 }
 
